@@ -1,15 +1,18 @@
 import { Model, DataTypes } from 'sequelize';
-import { sequelize } from '../../config/database';
+import { sequelize } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
-class User extends Model {
+class Account extends Model {
   public id!: number;
-  public firstName!: string;
-  public lastName!: string;
   public email!: string;
+  public password!: string;
+  public address!: string;
+  public shamirKey!: string;
+  public createdAt!: string;
+  public updatedAt!: string;
 }
 
-User.init(
+Account.init(
   {
     id: {
       allowNull: false,
@@ -17,10 +20,6 @@ User.init(
       primaryKey: true,
       type: DataTypes.UUID,
       defaultValue: uuidv4(),
-    },
-    name: {
-      type: DataTypes.STRING,
-      allowNull: false,
     },
     email: {
       type: DataTypes.STRING,
@@ -31,7 +30,7 @@ User.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    publicKey: {
+    address: {
       type: DataTypes.STRING,
       unique: true,
     },
@@ -49,10 +48,10 @@ User.init(
   },
   {
     sequelize,
-    modelName: 'User',
-    tableName: 'users',
+    modelName: 'Account',
+    tableName: 'accounts',
     timestamps: true,
-  }
+  },
 );
 
-export { User };
+export { Account };

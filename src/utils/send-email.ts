@@ -1,22 +1,26 @@
 import nodemailer from 'nodemailer';
+import ENVIRONMENT from '../config/environment';
 
 export async function sendEmail(email: string, subject: string, text: string) {
   try {
     const transporter = nodemailer.createTransport({
-      host: 'smtp.example.com',
-      port: 587,
+      host: ENVIRONMENT.SMTP_HOST ?? 'localhost',
+      port: ENVIRONMENT.SMTP_PORT ?? 25,
       secure: false,
-      auth: {
-        user: 'your_email@example.com',
-        pass: 'your_email_password'
-      }
+      auth:
+        ENVIRONMENT.SMTP_USER && ENVIRONMENT.SMTP_PASSWORD
+          ? {
+              user: ENVIRONMENT.SMTP_USER,
+              pass: ENVIRONMENT.SMTP_PASSWORD,
+            }
+          : {},
     });
 
     const mailOptions = {
-      from: 'your_email@example.com',
+      from: ENVIRONMENT.SMTP_USER,
       to: email,
       subject,
-      text
+      text,
     };
 
     await transporter.sendMail(mailOptions);

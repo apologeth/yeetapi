@@ -1,0 +1,14 @@
+{
+  "cSpell.words": ["boxel"],
+  "editor.formatOnSave": true,
+  "[glimmer-js]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[glimmer-ts]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "prettier.documentSelectors": ["**/*.ts"],
+  "search.followSymlinks": false
+}
