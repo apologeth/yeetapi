@@ -3,20 +3,38 @@ import { ethers } from 'ethers';
 import { split, combine } from 'shamir-secret-sharing';
 import { Account } from '../models/Account';
 import { sendEmail } from '../utils/send-email';
-import { hashPassword } from '../utils/hash-password';
+import { hashPassword } from '../utils/password';
 import {
   shamirKeyFromReadableString,
   shamirKeyToReadableString,
 } from '../utils/shamir-key';
+import ConflictError from '../errors/conflict';
+import {
+  createErrorResponse,
+  createSuccessResponse,
+} from '../utils/create-response';
+import { snakeToCamel } from '../utils/conversion';
+import BadRequestError from '../errors/bad-request';
+import { mustBeNull, mustBeTrue, notNull } from '../utils/assert';
+import NotFoundError from '../errors/not-found';
 
-export async function createAccount(req: Request, res: Response) {
+export async function createAccount(request: Request, response: Response) {
   try {
-    const { name, email, password } = req.body;
+    const { email, password } = snakeToCamel(request.body);
+
+    notNull(new BadRequestError('email is required'), email);
+    notNull(new BadRequestError('password is required'), password);
+
+    const existingAccount = await Account.findOne({ where: { email } });
+    mustBeNull(
+      new ConflictError(`email: ${email} is already registered`),
+      existingAccount,
+    );
 
     // Generate ETH private key
     const wallet = ethers.Wallet.createRandom();
     const privateKey = wallet.privateKey;
-    const publicKey = wallet.address;
+    const address = wallet.address;
 
     // Perform Shamir's secret sharing
     const encoder = new TextEncoder();
@@ -29,44 +47,53 @@ export async function createAccount(req: Request, res: Response) {
       `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
     );
     await Account.create({
-      name,
       email,
       password: await hashPassword(password),
-      publicKey,
+      address,
       shamirKey,
     });
 
-    res.json({ secretKey: shamirKeyToReadableString(shares[2]) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    createSuccessResponse(response, {
+      address: wallet.address,
+      shamirKey: shamirKeyToReadableString(shares[2]),
+    });
+  } catch (error: any) {
+    createErrorResponse(response, error);
   }
 }
 
-export async function recoverAccount(req: Request, res: Response) {
+export async function recoverAccount(request: Request, response: Response) {
   try {
     //shamirKey from email
-    const { email, shamirKey } = req.body;
+    const { email, shamirKey } = snakeToCamel(request.body);
+    notNull(new BadRequestError('email is required'), email);
+    notNull(new BadRequestError('shamir_key is required'), shamirKey);
+
     const account = await Account.findOne({
       where: { email },
     });
-    if (!account) {
-      throw new Error('Account not found');
-    }
+    notNull(new NotFoundError('account not found'), account);
+
     const decoder = new TextDecoder();
-    const firstShareKey = shamirKeyFromReadableString(shamirKey);
-    const secondShareKey = shamirKeyFromReadableString(account.shamirKey);
+    const firstShareKey = shamirKeyFromReadableString(account!.shamirKey);
+    const secondShareKey = shamirKeyFromReadableString(shamirKey);
     const combined = await combine([firstShareKey, secondShareKey]);
 
     const privateKey = decoder.decode(combined);
     const wallet = new ethers.Wallet(privateKey);
-    if (wallet.address !== account.address) {
-      throw new Error('Key not match');
-    }
+    mustBeTrue(
+      new BadRequestError('key not match'),
+      account!.address === wallet.address,
+    );
 
-    res.json({ email: account.email, address: wallet.address });
-  } catch (err: any) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    const encoder = new TextEncoder();
+    const shares = await split(encoder.encode(privateKey), 3, 2);
+
+    createSuccessResponse(response, {
+      address: wallet.address,
+      shamirKey: shamirKeyToReadableString(shares[2]),
+    });
+  } catch (error: any) {
+    createErrorResponse(response, error);
   }
 }
