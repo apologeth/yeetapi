@@ -4,6 +4,7 @@ import ENVIRONMENT from '../config/environment';
 export async function sendEmail(email: string, subject: string, text: string) {
   try {
     const transporter = nodemailer.createTransport({
+      name: 'langit-wallet',
       host: ENVIRONMENT.SMTP_HOST ?? 'localhost',
       port: ENVIRONMENT.SMTP_PORT ?? 25,
       secure: false,
@@ -14,6 +15,7 @@ export async function sendEmail(email: string, subject: string, text: string) {
               pass: ENVIRONMENT.SMTP_PASSWORD,
             }
           : {},
+      service: 'gmail',
     });
 
     const mailOptions = {
@@ -25,7 +27,7 @@ export async function sendEmail(email: string, subject: string, text: string) {
 
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    throw new Error('Failed to send secret key via email');
+    throw new Error('Failed to send secret key via email => ' + error);
   }
 }
 

@@ -1,11 +1,11 @@
-# Use the official Node.js 16 image as the base image
-FROM node:16
+# Use the official Node.js 18.20 image as the base image
+FROM node:18.20
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
 # Copy the package.json and package-lock.json files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install the dependencies
 RUN npm install
@@ -17,4 +17,7 @@ COPY . .
 RUN npm run build
 
 # Expose the port the app runs on
-EXPOSE
+EXPOSE 3000
+
+# Start the application
+CMD ["node", "dist/src/app.js"]

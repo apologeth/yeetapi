@@ -8,6 +8,8 @@ export function createSuccessResponse(response: Response, data: object = {}) {
     data: camelToSnake(data),
   };
 
+  console.log('==== LOG ====', resObject);
+
   return response.status(resObject.code).json(resObject);
 }
 
@@ -17,10 +19,13 @@ export function createErrorResponse(response: Response, error: Error) {
     code: 500,
     message: 'Internal Server Error',
   };
+
   if ('code' in error && typeof error.code === 'number') {
     errResponse.code = error.code;
     errResponse.message = error.message;
   }
+
+  console.error('==== ERROR ====', errResponse, error);
 
   return response.status(errResponse.code).json(errResponse);
 }

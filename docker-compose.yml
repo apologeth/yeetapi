@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  langit-db:
+    container_name: langit-db
+    image: postgres:16.3
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: langit-password
+      POSTGRES_DB: langit
+      POSTGRES_HOST_AUTH_METHOD: md5
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5433:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  app:
+    container_name: langit-be
+    build: .
+    ports:
+      - '3000:3000'
+    depends_on:
+      - langit-db
+    environment:
+      NODE_ENV: staging
+      DATABASE_HOST: host.docker.internal
+      DATABASE_PORT: 5433
+      DATABASE_NAME: langit
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: langit-password
+      SMTP_HOST: localhost
+      SMTP_PORT: 25
+      SMTP_USER: soultanmuh@gmail.com
+      SMTP_PASSWORD: "ogrj divz eahc lyox"
+      ADMIN_NAME: admin
+      ADMIN_PASSWORD: password
+      JWT_SECRET: jwt_secret
+      JWT_REFRESH_SECRET: jwt_refresh_secret
+      JWT_EXPIRATION: 86500000
+      JWT_REFRESH_EXPIRATION: 2592000000
+    command: ['node', 'dist/src/app.js']
+    # volumes:
+      # - .:/usr/src/app:ro
+    restart: always
+
+volumes:
+  db-data:

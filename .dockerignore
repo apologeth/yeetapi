@@ -1,0 +1,16 @@
+# Ignore node_modules directory
+node_modules
+
+# Ignore the build output directory
+dist
+
+# Ignore local development files
+*.log
+# .env
+.DS_Store
+
+# Ignore other potential unnecessary files
+.git
+.gitignore
+.vscode
+.idea
