@@ -19,7 +19,7 @@ Client.init(
       autoIncrement: true,
       primaryKey: true,
       type: DataTypes.UUID,
-      defaultValue: uuidv4(),
+      defaultValue: DataTypes.UUIDV4,
     },
     name: {
       type: DataTypes.STRING,
