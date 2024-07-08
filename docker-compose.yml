@@ -73,7 +73,7 @@ services:
       - web-root:/var/www/html
     depends_on:
       - webserver
-    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --staging -d 103.217.145.192  -d www.103.217.145.192
+    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --staging -d 43.218.138.25  -d www.43.218.138.25
 
 volumes:
   db-data:
