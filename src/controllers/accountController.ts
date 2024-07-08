@@ -69,9 +69,6 @@ export async function authWithGoogle(request: Request, response: Response) {
     const { googleCode } = snakeToCamel(request.body);
     notNull(new BadRequestError('google_code is required'), googleCode);
     
-    console.log(googleCode);
-    console.log(ENVIRONMENT.GOOGLE_CLIENT_ID);
-    console.log(ENVIRONMENT.GOOGLE_CLIENT_SECRET);
     const resFromGoogle = await axios.post(
       'https://oauth2.googleapis.com/token',
       {
@@ -93,7 +90,9 @@ export async function authWithGoogle(request: Request, response: Response) {
       }
     );
     const userDetails = userResponse.data;
-    const { email } = userDetails.email;
+    console.log(userResponse);
+    console.log(userDetails);
+    const email = userDetails.email;
 
     const existingAccount = await Account.findOne({ where: { email } });
     mustBeNull(
