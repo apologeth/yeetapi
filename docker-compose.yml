@@ -34,7 +34,7 @@ services:
       SMTP_HOST: localhost
       SMTP_PORT: 25
       SMTP_USER: soultanmuh@gmail.com
-      SMTP_PASSWORD: "ogrj divz eahc lyox"
+      SMTP_PASSWORD: 'ogrj divz eahc lyox'
       ADMIN_NAME: admin
       ADMIN_PASSWORD: password
       JWT_SECRET: jwt_secret
@@ -43,7 +43,7 @@ services:
       JWT_REFRESH_EXPIRATION: 2592000000
     command: ['node', 'dist/src/app.js']
     # volumes:
-      # - .:/usr/src/app:ro
+    # - .:/usr/src/app:ro
     restart: always
     networks:
       - app-network
@@ -53,7 +53,7 @@ services:
     container_name: webserver
     restart: unless-stopped
     ports:
-      - "80:80"
+      - '80:80'
     volumes:
       - web-root:/var/www/html
       - ./nginx-conf:/etc/nginx/conf.d
@@ -73,7 +73,7 @@ services:
       - web-root:/var/www/html
     depends_on:
       - webserver
-    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --staging -d 103.217.145.192  -d www.103.217.145.192 
+    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --staging -d 103.217.145.192  -d www.103.217.145.192
 
 volumes:
   db-data:
@@ -83,9 +83,9 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: /home/langit-wallet/LangitApi/src/views/
+      device: /home/ubuntu/LangitApi/src/views/
       o: bind
 
 networks:
   app-network:
-    driver: bridge    
+    driver: bridge
