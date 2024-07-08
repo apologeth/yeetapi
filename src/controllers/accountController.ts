@@ -17,6 +17,8 @@ import { snakeToCamel } from '../utils/conversion';
 import BadRequestError from '../errors/bad-request';
 import { mustBeNull, mustBeTrue, notNull } from '../utils/assert';
 import NotFoundError from '../errors/not-found';
+import axios from 'axios';
+import ENVIRONMENT from '../config/environment';
 
 export async function createAccount(request: Request, response: Response) {
   try {
@@ -58,6 +60,75 @@ export async function createAccount(request: Request, response: Response) {
       shamirKey: shamirKeyToReadableString(shares[2]),
     });
   } catch (error: any) {
+    createErrorResponse(response, error);
+  }
+}
+
+export async function authWithGoogle(request: Request, response: Response) {
+  try {
+    const { googleCode } = snakeToCamel(request.body);
+    notNull(new BadRequestError('google_code is required'), googleCode);
+    
+    console.log(googleCode);
+    console.log(ENVIRONMENT.GOOGLE_CLIENT_ID);
+    console.log(ENVIRONMENT.GOOGLE_CLIENT_SECRET);
+    const resFromGoogle = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      {
+        code: googleCode,
+        client_id: ENVIRONMENT.GOOGLE_CLIENT_ID,
+        client_secret: ENVIRONMENT.GOOGLE_CLIENT_SECRET,
+        redirect_uri: 'http://localhost:3000/api/accounts/google-auth',
+        grant_type: 'authorization_code'
+      }
+    )
+    const accessToken = resFromGoogle.data.access_token;
+
+    const userResponse = await axios.get(
+      'https://www.googleapis.com/oauth2/v3/userinfo',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+    const userDetails = userResponse.data;
+    const { email } = userDetails.email;
+
+    const existingAccount = await Account.findOne({ where: { email } });
+    mustBeNull(
+      new ConflictError(`email: ${email} is already registered`),
+      existingAccount,
+    );
+
+    // Generate ETH private key
+    const wallet = ethers.Wallet.createRandom();
+    const privateKey = wallet.privateKey;
+    const address = wallet.address;
+
+    // Perform Shamir's secret sharing
+    const encoder = new TextEncoder();
+    const shares = await split(encoder.encode(privateKey), 3, 2);
+    const shamirKey = shamirKeyToReadableString(shares[0]);
+
+    await sendEmail(
+      email,
+      'Your Secret Key',
+      `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
+    );
+
+    await Account.create({
+      email,
+      address,
+      shamirKey,
+    });
+
+    createSuccessResponse(response, {
+      address: wallet.address,
+      shamirKey: shamirKeyToReadableString(shares[2]),
+    });
+  } catch(error: any) {
+    console.log(error);
     createErrorResponse(response, error);
   }
 }
