@@ -54,11 +54,13 @@ services:
     restart: unless-stopped
     ports:
       - '80:80'
+      - '443:443'
     volumes:
       - web-root:/var/www/html
       - ./nginx-conf:/etc/nginx/conf.d
       - certbot-etc:/etc/letsencrypt
       - certbot-var:/var/lib/letsencrypt
+      - dhparam:/etc/ssl/certs
     depends_on:
       - app
     networks:
@@ -73,7 +75,7 @@ services:
       - web-root:/var/www/html
     depends_on:
       - webserver
-    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --staging -d langitapi.blockchainworks.id -d www.langitapi.blockchainworks.id
+    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --force-renewal -d langitapi.blockchainworks.id
 
 volumes:
   db-data:
@@ -84,6 +86,12 @@ volumes:
     driver_opts:
       type: none
       device: /home/ubuntu/LangitApi/src/views/
+      o: bind
+  dhparam:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/ubuntu/LangitApi/dhparam
       o: bind
 
 networks:
