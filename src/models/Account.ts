@@ -8,7 +8,7 @@ class Account extends Model {
   public password!: string;
   public passwordSalt!: string;
   public address!: string;
-  public shamirKey!: string;
+  public encryptedShard!: string;
   public createdAt!: string;
   public updatedAt!: string;
 }
@@ -35,7 +35,7 @@ Account.init(
       type: DataTypes.STRING,
       unique: true,
     },
-    shamirKey: {
+    encryptedShard: {
       type: DataTypes.STRING,
     },
     createdAt: {

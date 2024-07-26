@@ -23,7 +23,7 @@ module.exports = {
         type: Sequelize.STRING,
         unique: true,
       },
-      shamir_key: {
+      encrypted_shard: {
         type: Sequelize.STRING,
       },
       created_at: {
