@@ -9,6 +9,9 @@ import { ethers } from 'ethers';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
 import { encryptToKMS } from '../utils/kms';
+import LangitAccount from '../contracts/LangitAccount.json';
+import { getContracts } from '../utils/contracts';
+import { setupUserOpExecute } from '../utils/user-operation';
 
 type CreateAccountResult = {
   account: Account;
@@ -35,12 +38,16 @@ export default class AccountService {
     const encoder = new TextEncoder();
     const shares = await split(encoder.encode(privateKey), 3, 2);
     const shardKMS = shamirKeyToReadableString(shares[0]);
-    const encryptedShard = encryptToKMS(shardKMS);
+    const encryptedShard = await encryptToKMS(shardKMS);
 
     await sendEmail(
       email,
       'Your Secret Key',
       `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
+    );
+    const accountAbstractionAddress = await this.deployAccountAbstraction(
+      email,
+      privateKey,
     );
     return {
       account: await Account.create({
@@ -48,6 +55,8 @@ export default class AccountService {
         password: password ? await hashPassword(password) : password,
         address,
         encryptedShard,
+        accountAbstractionAddress,
+        status: 'INIT',
       }),
       shardDevice: shamirKeyToReadableString(shares[2]),
     };
@@ -80,5 +89,53 @@ export default class AccountService {
     const email = userDetails.email;
 
     return await this.createAccount(email);
+  }
+
+  async deployAccountAbstraction(email: string, accountPrivateKey: string) {
+    const signer = new ethers.Wallet(accountPrivateKey);
+    const { langitAccountFactory } = await getContracts();
+
+    const initCallData = langitAccountFactory.interface.encodeFunctionData(
+      'createAccount',
+      [signer.address, '0x00'],
+    );
+    const factoryAddress = ethers.utils.solidityPack(
+      ['address'],
+      [langitAccountFactory.address],
+    );
+    const initCode = ethers.utils.solidityPack(
+      ['bytes', 'bytes'],
+      [factoryAddress, initCallData],
+    );
+
+    const expectedAccountAddress: string =
+      await langitAccountFactory.getAddress(signer.address, '0x00');
+    const Account = new ethers.ContractFactory(
+      LangitAccount.abi,
+      LangitAccount.bytecode,
+    );
+    const callData = Account.interface.encodeFunctionData('register', [
+      email,
+      '',
+    ]);
+
+    const userOp = await setupUserOpExecute({
+      signer,
+      sender: expectedAccountAddress,
+      initCode,
+      target: expectedAccountAddress,
+      value: 0,
+      callData,
+    });
+
+    const responseFromBundler = await axios.post(ENVIRONMENT.BUNDLER_RPC_URL!, {
+      jsonrpc: '2.0',
+      method: 'eth_sendUserOperation',
+      params: [userOp],
+      id: 1,
+    });
+    console.log(responseFromBundler.data);
+
+    return expectedAccountAddress;
   }
 }

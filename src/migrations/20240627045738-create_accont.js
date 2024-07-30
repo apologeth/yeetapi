@@ -23,8 +23,11 @@ module.exports = {
         type: Sequelize.STRING,
         unique: true,
       },
-      encrypted_shard: {
+      account_abstraction_address: {
         type: Sequelize.STRING,
+      },
+      status: {
+        type: Sequelize.ENUM('INIT', 'CREATED', 'FAILED'),
       },
       created_at: {
         allowNull: false,

@@ -29,7 +29,6 @@ export default class AccountController {
 
       notNull(new BadRequestError('email is required'), email);
       notNull(new BadRequestError('password is required'), password);
-
       const { account, shardDevice } = await this.accountService.createAccount(
         email,
         password,
@@ -40,6 +39,7 @@ export default class AccountController {
         shardDevice,
       });
     } catch (error: any) {
+      console.log(error);
       createErrorResponse(response, error);
     }
   }

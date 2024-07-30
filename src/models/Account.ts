@@ -8,7 +8,9 @@ class Account extends Model {
   public password!: string;
   public passwordSalt!: string;
   public address!: string;
+  public accountAbstractionAddress!: string;
   public encryptedShard!: string;
+  public status!: string;
   public createdAt!: string;
   public updatedAt!: string;
 }
@@ -35,8 +37,11 @@ Account.init(
       type: DataTypes.STRING,
       unique: true,
     },
-    encryptedShard: {
+    accountAbstractionAddress: {
       type: DataTypes.STRING,
+    },
+    status: {
+      type: DataTypes.ENUM('INIT', 'CREATED', 'FAILED'),
     },
     createdAt: {
       allowNull: false,

@@ -9,12 +9,12 @@ export function accountRoute(router: Router) {
   router.post(
     '/accounts',
     bearerAuthMiddleware,
-    accountController.createAccount,
+    accountController.createAccount.bind(accountController),
   );
   router.post(
     '/accounts/google-auth',
     bearerAuthMiddleware,
-    accountController.authWithGoogle,
+    accountController.authWithGoogle.bind(accountController),
   );
   router.post('/accounts/recover', bearerAuthMiddleware, recoverAccount);
 }
