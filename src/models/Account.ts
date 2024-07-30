@@ -1,6 +1,5 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
 
 class Account extends Model {
   public id!: string;
@@ -23,7 +22,7 @@ Account.init(
       autoIncrement: true,
       primaryKey: true,
       type: DataTypes.UUID,
-      defaultValue: uuidv4(),
+      defaultValue: DataTypes.UUIDV4,
     },
     email: {
       type: DataTypes.STRING,
