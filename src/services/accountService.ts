@@ -93,7 +93,7 @@ export default class AccountService {
 
   async deployAccountAbstraction(email: string, accountPrivateKey: string) {
     const signer = new ethers.Wallet(accountPrivateKey);
-    const { langitAccountFactory } = await getContracts();
+    const { entrypoint, langitAccountFactory } = await getContracts();
 
     const initCallData = langitAccountFactory.interface.encodeFunctionData(
       'createAccount',
@@ -131,7 +131,7 @@ export default class AccountService {
     const responseFromBundler = await axios.post(ENVIRONMENT.BUNDLER_RPC_URL!, {
       jsonrpc: '2.0',
       method: 'eth_sendUserOperation',
-      params: [userOp],
+      params: [userOp, entrypoint.address],
       id: 1,
     });
     console.log(responseFromBundler.data);
