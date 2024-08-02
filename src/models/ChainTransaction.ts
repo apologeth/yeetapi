@@ -2,20 +2,16 @@ import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
-class Account extends Model {
+class ChainTransaction extends Model {
   public id!: number;
-  public email!: string;
-  public password!: string;
-  public passwordSalt!: string;
-  public address!: string;
-  public accountAbstractionAddress!: string;
-  public encryptedShard!: string;
+  public transactionHash!: string;
+  public actionType!: string;
   public status!: string;
   public createdAt!: string;
   public updatedAt!: string;
 }
 
-Account.init(
+ChainTransaction.init(
   {
     id: {
       allowNull: false,
@@ -24,28 +20,15 @@ Account.init(
       type: DataTypes.UUID,
       defaultValue: uuidv4(),
     },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-    },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    address: {
-      type: DataTypes.STRING,
-      unique: true,
-    },
-    accountAbstractionAddress: {
-      type: DataTypes.STRING,
-    },
     transactionHash: {
       type: DataTypes.STRING,
       unique: true,
     },
+    actionType: {
+      type: DataTypes.ENUM('DEPLOY_AA'),
+    },
     status: {
-      type: DataTypes.ENUM('INIT', 'CREATED', 'FAILED'),
+      type: DataTypes.ENUM('SUBMITTED', 'CONFIRMED', 'FAILED'),
     },
     createdAt: {
       allowNull: false,
@@ -58,10 +41,10 @@ Account.init(
   },
   {
     sequelize,
-    modelName: 'Account',
-    tableName: 'accounts',
+    modelName: 'ChainTransaction',
+    tableName: 'chain_transactions',
     timestamps: true,
   },
 );
 
-export { Account };
+export { ChainTransaction };

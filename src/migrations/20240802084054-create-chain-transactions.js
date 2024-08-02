@@ -3,31 +3,22 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('accounts', {
+    await queryInterface.createTable('chain_transactions', {
       id: {
         allowNull: false,
         primaryKey: true,
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
       },
-      email: {
-        type: Sequelize.STRING,
-        allowNull: false,
-        unique: true,
-      },
-      password: {
-        type: Sequelize.STRING,
-        allowNull: true,
-      },
-      address: {
+      transaction_hash: {
         type: Sequelize.STRING,
         unique: true,
       },
-      account_abstraction_address: {
-        type: Sequelize.STRING,
+      action_type: {
+        type: Sequelize.ENUM('DEPLOY_AA'),
       },
       status: {
-        type: Sequelize.ENUM('INIT', 'CREATED', 'FAILED'),
+        type: Sequelize.ENUM('SUBMITTED', 'CONFIRMED', 'FAILED'),
       },
       created_at: {
         allowNull: false,
@@ -41,6 +32,6 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('accounts');
+    await queryInterface.dropTable('chain_transactions');
   },
 };
