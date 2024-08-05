@@ -14,6 +14,8 @@ export function accountRoute(router: Router) {
     bearerAuthMiddleware,
     accountController.authWithGoogle.bind(accountController),
   );
+  router.post('/accounts/refresh', bearerAuthMiddleware, accountController.refreshToken.bind(accountController));
   router.post('/accounts/recover', bearerAuthMiddleware, accountController.recoverAccount.bind(accountController));
+  router.post('/accounts/login', bearerAuthMiddleware, accountController.login.bind(accountController));
   router.get('/accounts/:id', bearerAuthMiddleware, accountController.fetchAccount.bind(accountController));
 }

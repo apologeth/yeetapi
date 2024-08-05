@@ -2,7 +2,7 @@ import { combine, split } from 'shamir-secret-sharing';
 import ConflictError from '../errors/conflict';
 import { Account } from '../models/Account';
 import { mustBeNull, mustBeTrue, notNull } from '../utils/assert';
-import { hashPassword } from '../utils/password';
+import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmail } from '../utils/send-email';
 import { shamirKeyFromReadableString, shamirKeyToReadableString } from '../utils/shamir-key';
 import { ethers } from 'ethers';
@@ -193,5 +193,13 @@ export default class AccountService {
       createdAt: account.createdAt,
       updatedAt: account.updatedAt,
     } : {}
+  }
+
+  async login(email: string, password: string) {
+    const account = await Account.findOne({ where: { email } });
+    notNull(new NotFoundError('invalid credentials'), account);
+    mustBeTrue(new NotFoundError('invalid credentials'), await verifyPassword(password, account!.password));
+
+    return account;
   }
 }
