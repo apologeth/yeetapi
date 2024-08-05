@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 class ChainTransaction extends Model {
   public id!: number;
-  public transactionHash!: string;
+  public userOperationHash!: string;
   public actionType!: string;
   public status!: string;
   public createdAt!: string;
@@ -20,7 +20,7 @@ ChainTransaction.init(
       type: DataTypes.UUID,
       defaultValue: uuidv4(),
     },
-    transactionHash: {
+    userOperationHash: {
       type: DataTypes.STRING,
       unique: true,
     },

@@ -44,16 +44,16 @@ export default class ChainTransactionService {
       callData,
     });
 
-    const transactionHash = await this.send(userOp);
+    const userOperationHash = await this.send(userOp);
     await ChainTransaction.create({
-      transactionHash,
+      userOperationHash,
       actionType: 'DEPLOY_AA',
       status: 'SUBMITTED',
     });
 
     return {
       accountAbstractionAddress,
-      transactionHash,
+      userOperationHash,
     };
   }
 

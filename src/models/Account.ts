@@ -3,10 +3,9 @@ import { sequelize } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
 class Account extends Model {
-  public id!: number;
+  public id!: string;
   public email!: string;
   public password!: string;
-  public passwordSalt!: string;
   public address!: string;
   public accountAbstractionAddress!: string;
   public encryptedShard!: string;
@@ -40,7 +39,7 @@ Account.init(
     accountAbstractionAddress: {
       type: DataTypes.STRING,
     },
-    transactionHash: {
+    userOperationHash: {
       type: DataTypes.STRING,
       unique: true,
     },

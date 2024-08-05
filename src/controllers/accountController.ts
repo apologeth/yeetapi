@@ -13,7 +13,6 @@ import {
 import { snakeToCamel } from '../utils/conversion';
 import BadRequestError from '../errors/bad-request';
 import { mustBeTrue, notNull } from '../utils/assert';
-import NotFoundError from '../errors/not-found';
 import AccountService from '../services/accountService';
 
 export default class AccountController {
@@ -33,9 +32,12 @@ export default class AccountController {
         email,
         password,
       );
+      const { accessToken, refreshToken } = await this.accountService.generateToken(account.id);
 
       createSuccessResponse(response, {
-        address: account.address,
+        id: account.id,
+        accessToken,
+        refreshToken,
         shardDevice,
       });
     } catch (error: any) {
@@ -51,9 +53,12 @@ export default class AccountController {
 
       const { account, shardDevice } =
         await this.accountService.createAccountWithGoogleToken(googleCode);
+      const { accessToken, refreshToken } = await this.accountService.generateToken(account.id);
 
       createSuccessResponse(response, {
-        address: account.address,
+        id: account.id,
+        accessToken,
+        refreshToken,
         shardDevice,
       });
     } catch (error: any) {
@@ -61,40 +66,40 @@ export default class AccountController {
       createErrorResponse(response, error);
     }
   }
-}
 
-export async function recoverAccount(request: Request, response: Response) {
-  try {
-    //shamirKey from email
-    const { email, shamirKey } = snakeToCamel(request.body);
-    notNull(new BadRequestError('email is required'), email);
-    notNull(new BadRequestError('shamir_key is required'), shamirKey);
+  async recoverAccount(request: Request, response: Response) {
+    try {
+      //shamirKey from email
+      const { email, shardEmail } = snakeToCamel(request.body);
+      notNull(new BadRequestError('email is required'), email);
+      notNull(new BadRequestError('shard_email is required'), shardEmail);
+      
+      const { account, shardDevice } =
+        await this.accountService.recoverAccount(email, shardEmail);
+      const { accessToken, refreshToken } = await this.accountService.generateToken(account.id);
+  
+      createSuccessResponse(response, {
+        id: account.id,
+        accessToken,
+        refreshToken,
+        shardDevice,
+      });
+    } catch (error: any) {
+      createErrorResponse(response, error);
+    }
+  }
 
-    const account = await Account.findOne({
-      where: { email },
-    });
-    notNull(new NotFoundError('account not found'), account);
-
-    const decoder = new TextDecoder();
-    const firstShareKey = shamirKeyFromReadableString(account!.encryptedShard);
-    const secondShareKey = shamirKeyFromReadableString(shamirKey);
-    const combined = await combine([firstShareKey, secondShareKey]);
-
-    const privateKey = decoder.decode(combined);
-    const wallet = new ethers.Wallet(privateKey);
-    mustBeTrue(
-      new BadRequestError('key not match'),
-      account!.address === wallet.address,
-    );
-
-    const encoder = new TextEncoder();
-    const shares = await split(encoder.encode(privateKey), 3, 2);
-
-    createSuccessResponse(response, {
-      address: wallet.address,
-      shamirKey: shamirKeyToReadableString(shares[2]),
-    });
-  } catch (error: any) {
-    createErrorResponse(response, error);
+  async fetchAccount(request: Request, response: Response) {
+    try {
+      //shamirKey from email
+      const accountId = request.params.id;
+      const authAccountId = (request as any).auth.id;
+      notNull(new BadRequestError('id is required'), accountId);
+      mustBeTrue(new BadRequestError('invalid credentials'), authAccountId === accountId);
+  
+      createSuccessResponse(response, await this.accountService.fetchAccount(accountId));
+    } catch (error: any) {
+      createErrorResponse(response, error);
+    }
   }
 }

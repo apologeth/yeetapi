@@ -1,4 +1,4 @@
-import { provider } from '../utils/contracts';
+import { getContracts, provider } from '../utils/contracts';
 import { ChainTransaction } from '../models/ChainTransaction';
 import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
@@ -11,16 +11,26 @@ export default class WorkerService {
       limit: 10,
     });
     const promises = chainTransactions.map(async (chainTransaction) => {
-      const receipt = await provider.getTransactionReceipt(
-        chainTransaction.transactionHash,
-      );
-      console.log(chainTransaction.transactionHash);
-      if (!receipt || (receipt.status !== 1 && receipt.status !== 2)) {
+      const { entrypoint } = await getContracts();
+      const filter = entrypoint.filters.UserOperationEvent(chainTransaction.userOperationHash);
+      const logs = await provider.getLogs({
+        ...filter,
+        fromBlock: 0,
+        toBlock: "latest"
+      });
+
+      if (!logs || logs.length === 0) {
+        return;
+      }
+      const receipt = await provider.getTransactionReceipt(logs[0].transactionHash);
+      if (!receipt) {
         return;
       }
 
       const status = receipt.status === 1 ? 'CONFIRMED' : 'FAILED';
-      await chainTransaction.update('status', status);
+      await chainTransaction.update({
+        status
+      });
       await this.nextStep(chainTransaction);
     });
     await Promise.all(promises);
@@ -41,15 +51,17 @@ export default class WorkerService {
   }
 
   private async updateAccountStatus(chainTransaction: ChainTransaction) {
-    const account = await Account.findOne({ where: { chainTransaction } });
+    const account = await Account.findOne({ where: { userOperationHash: chainTransaction.userOperationHash } });
     if (!account) {
       throw new NotFoundError(
-        `account with transaction hash ${chainTransaction.transactionHash} is not found`,
+        `account with transaction hash ${chainTransaction.userOperationHash} is not found`,
       );
     }
 
     const status =
-      chainTransaction.status === 'SUBMITTED' ? 'CREATED' : 'FAILED';
-    await account.update('status', status);
+      chainTransaction.status === 'CONFIRMED' ? 'CREATED' : 'FAILED';
+    await account.update({
+      status
+    });
   }
 }

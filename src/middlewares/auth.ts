@@ -55,7 +55,7 @@ export function bearerAuthMiddleware(
   const token = authHeader.split(' ')[1];
   try {
     const decoded = verifyAccessToken(token);
-    (request as any).user = decoded;
+    (request as any).auth = decoded;
   } catch (err) {
     return createErrorResponse(
       response,

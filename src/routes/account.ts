@@ -1,7 +1,5 @@
 import { Router } from 'express';
-import AccountController, {
-  recoverAccount,
-} from '../controllers/accountController';
+import AccountController from '../controllers/accountController';
 import { bearerAuthMiddleware } from '../middlewares/auth';
 
 const accountController = new AccountController();
@@ -16,5 +14,6 @@ export function accountRoute(router: Router) {
     bearerAuthMiddleware,
     accountController.authWithGoogle.bind(accountController),
   );
-  router.post('/accounts/recover', bearerAuthMiddleware, recoverAccount);
+  router.post('/accounts/recover', bearerAuthMiddleware, accountController.recoverAccount.bind(accountController));
+  router.get('/accounts/:id', bearerAuthMiddleware, accountController.fetchAccount.bind(accountController));
 }

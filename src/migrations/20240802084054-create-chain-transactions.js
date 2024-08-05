@@ -10,7 +10,7 @@ module.exports = {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
       },
-      transaction_hash: {
+      user_operation_hash: {
         type: Sequelize.STRING,
         unique: true,
       },

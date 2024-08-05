@@ -1,16 +1,20 @@
-import { split } from 'shamir-secret-sharing';
+import { combine, split } from 'shamir-secret-sharing';
 import ConflictError from '../errors/conflict';
 import { Account } from '../models/Account';
-import { mustBeNull } from '../utils/assert';
+import { mustBeNull, mustBeTrue, notNull } from '../utils/assert';
 import { hashPassword } from '../utils/password';
 import { sendEmail } from '../utils/send-email';
-import { shamirKeyToReadableString } from '../utils/shamir-key';
+import { shamirKeyFromReadableString, shamirKeyToReadableString } from '../utils/shamir-key';
 import { ethers } from 'ethers';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
-import { encryptToKMS } from '../utils/kms';
+import { decryptFromKMS, encryptToKMS } from '../utils/kms';
 import LangitAccount from '../contracts/LangitAccount.json';
 import ChainTransactionService from './chainTransactionService';
+import NotFoundError from '../errors/not-found';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/auth';
+import Unauthorized from '../errors/unauthorized';
+import BadRequestError from '../errors/bad-request';
 
 type CreateAccountResult = {
   account: Account;
@@ -50,12 +54,12 @@ export default class AccountService {
       'Your Secret Key',
       `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
     );
-    const { accountAbstractionAddress, transactionHash } =
+    const { accountAbstractionAddress, userOperationHash } =
       await this.chainTransactionService.deployAccountAbstraction(
         email,
         privateKey,
       );
-    console.log(transactionHash);
+
     return {
       account: await Account.create({
         email,
@@ -63,7 +67,7 @@ export default class AccountService {
         address,
         encryptedShard,
         accountAbstractionAddress,
-        transactionHash,
+        userOperationHash,
         status: 'INIT',
       }),
       shardDevice: shamirKeyToReadableString(shares[2]),
@@ -99,5 +103,95 @@ export default class AccountService {
     return await this.createAccount(email);
   }
 
-  async onDeployAccountAbstractionSuccess() {}
+  async recoverAccount(email: string, shardEmail: string): Promise<{
+    account: Account,
+    shardDevice: string,
+  }> {
+    const account = await Account.findOne({
+      where: { email },
+    });
+    notNull(new NotFoundError('account not found'), account);
+
+    const decoder = new TextDecoder();
+    const _shardKMS = await decryptFromKMS(account!.encryptedShard);
+    notNull(new NotFoundError('shard key not found'), _shardKMS);
+    const shardKMS = shamirKeyFromReadableString(_shardKMS!);
+    const secondShareKey = shamirKeyFromReadableString(shardEmail);
+    const combined = await combine([shardKMS, secondShareKey]);
+
+    const privateKey = decoder.decode(combined);
+    const wallet = new ethers.Wallet(privateKey);
+    mustBeTrue(
+      new BadRequestError('key not match'),
+      account!.address === wallet.address,
+    );
+
+    const encoder = new TextEncoder();
+    const shares = await split(encoder.encode(privateKey), 3, 2);
+    return {
+      account: account!,
+      shardDevice: shamirKeyToReadableString(shares[2]),
+    };
+  }
+
+  async generateToken(accountId: string) {
+    const account = await Account.findByPk(accountId);
+    notNull(new NotFoundError('account is not found'), account);
+
+    const accessToken = generateAccessToken({
+      id: account!.id,
+      email: account!.email,
+      type: 'account',
+    });
+    const refreshToken = generateRefreshToken({
+      id: account!.id,
+      email: account!.email,
+      type: 'account',
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+    }
+  }
+
+  async refreshToken(token: string) {
+    notNull(new Unauthorized('missing refresh token'), token);
+
+    const decoded = verifyRefreshToken(token) as {
+      id: string;
+      email: string;
+      type: string;
+    };
+
+    mustBeTrue(
+      new Unauthorized('must be account token'),
+      decoded.type === 'account'
+    );
+    const account = await Account.findByPk(decoded.id);
+    notNull(
+      new Unauthorized('invalid credentials'),
+      account
+    );
+
+    const accessToken = generateAccessToken({
+      id: account!.id,
+      email: account!.email,
+      type: 'account',
+    });
+    return accessToken;
+  }
+
+  async fetchAccount(accountId: string) {
+    const account = await Account.findByPk(accountId);
+    return account ? {
+      id: account.id,
+      email: account.email,
+      address: account.address,
+      accountAbstractionAddress: account.accountAbstractionAddress,
+      status: account.status,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+    } : {}
+  }
 }
