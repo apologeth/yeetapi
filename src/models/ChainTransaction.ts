@@ -1,6 +1,5 @@
-import { Model, DataTypes } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
 
 class ChainTransaction extends Model {
   public id!: number;
@@ -18,7 +17,7 @@ ChainTransaction.init(
       autoIncrement: true,
       primaryKey: true,
       type: DataTypes.UUID,
-      defaultValue: uuidv4(),
+      defaultValue: DataTypes.UUIDV4,
     },
     userOperationHash: {
       type: DataTypes.STRING,
