@@ -26,6 +26,11 @@ services:
       - langit-db
     environment:
       NODE_ENV: staging
+      DATABASE_HOST: 172.17.0.1
+      DATABASE_PORT: 5433
+      DATABASE_NAME: langit
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: langit-password
     command: ['node', 'dist/src/app.js']
     # volumes:
     # - .:/usr/src/app:ro
