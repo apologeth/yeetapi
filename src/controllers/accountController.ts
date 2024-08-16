@@ -1,11 +1,4 @@
 import { Request, Response } from 'express';
-import { ethers } from 'ethers';
-import { split, combine } from 'shamir-secret-sharing';
-import { Account } from '../models/Account';
-import {
-  shamirKeyFromReadableString,
-  shamirKeyToReadableString,
-} from '../utils/shamir-key';
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -33,7 +26,8 @@ export default class AccountController {
         email,
         password,
       );
-      const { accessToken, refreshToken } = await this.accountService.generateToken(account.id);
+      const { accessToken, refreshToken } =
+        await this.accountService.generateToken(account.id);
 
       createSuccessResponse(response, {
         id: account.id,
@@ -54,7 +48,8 @@ export default class AccountController {
 
       const { account, shardDevice } =
         await this.accountService.createAccountWithGoogleToken(googleCode);
-      const { accessToken, refreshToken } = await this.accountService.generateToken(account.id);
+      const { accessToken, refreshToken } =
+        await this.accountService.generateToken(account.id);
 
       createSuccessResponse(response, {
         id: account.id,
@@ -74,11 +69,14 @@ export default class AccountController {
       const { email, shardEmail } = snakeToCamel(request.body);
       notNull(new BadRequestError('email is required'), email);
       notNull(new BadRequestError('shard_email is required'), shardEmail);
-      
-      const { account, shardDevice } =
-        await this.accountService.recoverAccount(email, shardEmail);
-      const { accessToken, refreshToken } = await this.accountService.generateToken(account.id);
-  
+
+      const { account, shardDevice } = await this.accountService.recoverAccount(
+        email,
+        shardEmail,
+      );
+      const { accessToken, refreshToken } =
+        await this.accountService.generateToken(account.id);
+
       createSuccessResponse(response, {
         id: account.id,
         accessToken,
@@ -86,6 +84,7 @@ export default class AccountController {
         shardDevice,
       });
     } catch (error: any) {
+      console.log(error);
       createErrorResponse(response, error);
     }
   }
@@ -95,9 +94,15 @@ export default class AccountController {
       const accountId = request.params.id;
       const authAccountId = (request as any).auth.id;
       notNull(new BadRequestError('id is required'), accountId);
-      mustBeTrue(new BadRequestError('invalid credentials'), authAccountId === accountId);
-  
-      createSuccessResponse(response, await this.accountService.fetchAccount(accountId));
+      mustBeTrue(
+        new BadRequestError('invalid credentials'),
+        authAccountId === accountId,
+      );
+
+      createSuccessResponse(
+        response,
+        await this.accountService.fetchAccount(accountId),
+      );
     } catch (error: any) {
       createErrorResponse(response, error);
     }
@@ -107,10 +112,10 @@ export default class AccountController {
     try {
       const { refreshToken } = snakeToCamel(request.body);
       notNull(new Unauthorized('missing refresh token'), refreshToken);
-      
+
       const accessToken = await this.accountService.refreshToken(refreshToken);
       createSuccessResponse(response, {
-        accessToken
+        accessToken,
       });
     } catch (error: any) {
       createErrorResponse(response, error);
@@ -123,9 +128,9 @@ export default class AccountController {
       notNull(new BadRequestError('email is required'), email);
       notNull(new BadRequestError('password is required'), password);
 
-      const account =
-        await this.accountService.login(email, password);
-      const { accessToken, refreshToken } = await this.accountService.generateToken(account!.id);
+      const account = await this.accountService.login(email, password);
+      const { accessToken, refreshToken } =
+        await this.accountService.generateToken(account!.id);
 
       createSuccessResponse(response, {
         id: account!.id,

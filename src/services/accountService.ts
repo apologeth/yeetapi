@@ -4,15 +4,21 @@ import { Account } from '../models/Account';
 import { mustBeNull, mustBeTrue, notNull } from '../utils/assert';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmail } from '../utils/send-email';
-import { shamirKeyFromReadableString, shamirKeyToReadableString } from '../utils/shamir-key';
+import {
+  shamirKeyFromReadableString,
+  shamirKeyToReadableString,
+} from '../utils/shamir-key';
 import { ethers } from 'ethers';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
 import { decryptFromKMS, encryptToKMS } from '../utils/kms';
-import LangitAccount from '../contracts/LangitAccount.json';
 import ChainTransactionService from './chainTransactionService';
 import NotFoundError from '../errors/not-found';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/auth';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from '../utils/auth';
 import Unauthorized from '../errors/unauthorized';
 import BadRequestError from '../errors/bad-request';
 
@@ -103,9 +109,12 @@ export default class AccountService {
     return await this.createAccount(email);
   }
 
-  async recoverAccount(email: string, shardEmail: string): Promise<{
-    account: Account,
-    shardDevice: string,
+  async recoverAccount(
+    email: string,
+    shardEmail: string,
+  ): Promise<{
+    account: Account;
+    shardDevice: string;
   }> {
     const account = await Account.findOne({
       where: { email },
@@ -152,7 +161,7 @@ export default class AccountService {
     return {
       accessToken,
       refreshToken,
-    }
+    };
   }
 
   async refreshToken(token: string) {
@@ -166,13 +175,10 @@ export default class AccountService {
 
     mustBeTrue(
       new Unauthorized('must be account token'),
-      decoded.type === 'account'
+      decoded.type === 'account',
     );
     const account = await Account.findByPk(decoded.id);
-    notNull(
-      new Unauthorized('invalid credentials'),
-      account
-    );
+    notNull(new Unauthorized('invalid credentials'), account);
 
     const accessToken = generateAccessToken({
       id: account!.id,
@@ -184,21 +190,26 @@ export default class AccountService {
 
   async fetchAccount(accountId: string) {
     const account = await Account.findByPk(accountId);
-    return account ? {
-      id: account.id,
-      email: account.email,
-      address: account.address,
-      accountAbstractionAddress: account.accountAbstractionAddress,
-      status: account.status,
-      createdAt: account.createdAt,
-      updatedAt: account.updatedAt,
-    } : {}
+    return account
+      ? {
+          id: account.id,
+          email: account.email,
+          address: account.address,
+          accountAbstractionAddress: account.accountAbstractionAddress,
+          status: account.status,
+          createdAt: account.createdAt,
+          updatedAt: account.updatedAt,
+        }
+      : {};
   }
 
   async login(email: string, password: string) {
     const account = await Account.findOne({ where: { email } });
     notNull(new NotFoundError('invalid credentials'), account);
-    mustBeTrue(new NotFoundError('invalid credentials'), await verifyPassword(password, account!.password));
+    mustBeTrue(
+      new NotFoundError('invalid credentials'),
+      await verifyPassword(password, account!.password),
+    );
 
     return account;
   }

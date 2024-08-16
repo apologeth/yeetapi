@@ -3,6 +3,8 @@ import bodyParser from 'body-parser';
 import { accountRoute } from './routes/account';
 import { clientRoute } from './routes/client';
 import WorkerService from './services/workerService';
+import { tokenRoute } from './routes/token';
+import { transactionRoute } from './routes/transaction';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +18,8 @@ app.listen(PORT, () => {
 const router = Router();
 accountRoute(router);
 clientRoute(router);
+tokenRoute(router);
+transactionRoute(router);
 app.use('/api', router);
 
 const workerService = new WorkerService();

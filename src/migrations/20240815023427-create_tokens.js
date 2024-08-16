@@ -3,38 +3,25 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('accounts', {
+    await queryInterface.createTable('tokens', {
       id: {
         allowNull: false,
         primaryKey: true,
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
       },
-      email: {
+      name: {
         type: Sequelize.STRING,
-        allowNull: false,
-        unique: true,
       },
-      password: {
+      symbol: {
         type: Sequelize.STRING,
-        allowNull: true,
       },
       address: {
         type: Sequelize.STRING,
         unique: true,
       },
-      account_abstraction_address: {
-        type: Sequelize.STRING,
-      },
-      user_operation_hash: {
-        type: Sequelize.STRING,
-        unique: true,
-      },
-      encrypted_shard: {
-        type: Sequelize.TEXT,
-      },
-      status: {
-        type: Sequelize.ENUM('INIT', 'CREATED', 'FAILED'),
+      decimals: {
+        type: Sequelize.INTEGER,
       },
       created_at: {
         allowNull: false,
@@ -48,6 +35,6 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('accounts');
+    await queryInterface.dropTable('tokens');
   },
 };

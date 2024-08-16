@@ -57,7 +57,7 @@ export default class ChainTransactionService {
     };
   }
 
-  async send(userOp: UserOperation): Promise<string> {
+  private async send(userOp: UserOperation): Promise<string> {
     const { entrypoint } = await getContracts();
 
     const responseFromBundler = await axios.post(ENVIRONMENT.BUNDLER_RPC_URL!, {

@@ -12,24 +12,28 @@ export default class WorkerService {
     });
     const promises = chainTransactions.map(async (chainTransaction) => {
       const { entrypoint } = await getContracts();
-      const filter = entrypoint.filters.UserOperationEvent(chainTransaction.userOperationHash);
+      const filter = entrypoint.filters.UserOperationEvent(
+        chainTransaction.userOperationHash,
+      );
       const logs = await provider.getLogs({
         ...filter,
         fromBlock: 0,
-        toBlock: "latest"
+        toBlock: 'latest',
       });
 
       if (!logs || logs.length === 0) {
         return;
       }
-      const receipt = await provider.getTransactionReceipt(logs[0].transactionHash);
+      const receipt = await provider.getTransactionReceipt(
+        logs[0].transactionHash,
+      );
       if (!receipt) {
         return;
       }
 
       const status = receipt.status === 1 ? 'CONFIRMED' : 'FAILED';
       await chainTransaction.update({
-        status
+        status,
       });
       await this.nextStep(chainTransaction);
     });
@@ -51,7 +55,9 @@ export default class WorkerService {
   }
 
   private async updateAccountStatus(chainTransaction: ChainTransaction) {
-    const account = await Account.findOne({ where: { userOperationHash: chainTransaction.userOperationHash } });
+    const account = await Account.findOne({
+      where: { userOperationHash: chainTransaction.userOperationHash },
+    });
     if (!account) {
       throw new NotFoundError(
         `account with transaction hash ${chainTransaction.userOperationHash} is not found`,
@@ -61,7 +67,7 @@ export default class WorkerService {
     const status =
       chainTransaction.status === 'CONFIRMED' ? 'CREATED' : 'FAILED';
     await account.update({
-      status
+      status,
     });
   }
 }

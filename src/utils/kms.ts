@@ -21,12 +21,16 @@ export async function encryptToKMS(shardKMS: string) {
 
   const data = await kms.encrypt(params).promise();
   const encryptedShard = data.CiphertextBlob?.toString('base64');
+  console.log(encryptedShard);
   return encryptedShard;
 }
 
 export async function decryptFromKMS(encryptedShard: string) {
   const params = {
     CiphertextBlob: Buffer.from(encryptedShard, 'base64'),
+    EncryptionContext: {
+      Description: 'Shard',
+    },
   };
 
   const data = await kms.decrypt(params).promise();

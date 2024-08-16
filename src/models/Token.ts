@@ -2,19 +2,17 @@ import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
-class Account extends Model {
+class Token extends Model {
   public id!: string;
-  public email!: string;
-  public password!: string;
+  public name!: string;
+  public symbol!: string;
   public address!: string;
-  public accountAbstractionAddress!: string;
-  public encryptedShard!: string;
-  public status!: string;
+  public decimals!: number;
   public createdAt!: string;
   public updatedAt!: string;
 }
 
-Account.init(
+Token.init(
   {
     id: {
       allowNull: false,
@@ -23,31 +21,18 @@ Account.init(
       type: DataTypes.UUID,
       defaultValue: uuidv4(),
     },
-    email: {
+    name: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
     },
-    password: {
+    symbol: {
       type: DataTypes.STRING,
-      allowNull: true,
     },
     address: {
       type: DataTypes.STRING,
       unique: true,
     },
-    accountAbstractionAddress: {
-      type: DataTypes.STRING,
-    },
-    userOperationHash: {
-      type: DataTypes.STRING,
-      unique: true,
-    },
-    encryptedShard: {
-      type: DataTypes.STRING,
-    },
-    status: {
-      type: DataTypes.ENUM('INIT', 'CREATED', 'FAILED'),
+    decimals: {
+      type: DataTypes.NUMBER,
     },
     createdAt: {
       allowNull: false,
@@ -60,10 +45,10 @@ Account.init(
   },
   {
     sequelize,
-    modelName: 'Account',
-    tableName: 'accounts',
+    modelName: 'Token',
+    tableName: 'tokens',
     timestamps: true,
   },
 );
 
-export { Account };
+export { Token };
