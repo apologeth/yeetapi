@@ -37,7 +37,7 @@ Transaction.init(
       autoIncrement: true,
       primaryKey: true,
       type: DataTypes.UUID,
-      defaultValue: uuidv4(),
+      defaultValue: DataTypes.UUIDV4,
     },
     sender: {
       type: DataTypes.STRING,

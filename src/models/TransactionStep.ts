@@ -25,7 +25,7 @@ TransactionStep.init(
       autoIncrement: true,
       primaryKey: true,
       type: DataTypes.UUID,
-      defaultValue: uuidv4(),
+      defaultValue: DataTypes.UUIDV4,
     },
     transactionId: {
       type: DataTypes.STRING,
