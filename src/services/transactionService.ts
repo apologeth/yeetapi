@@ -4,12 +4,20 @@ import { BigNumber, ethers } from 'ethers';
 import { Transaction } from '../models/Transaction';
 import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
-import { decryptFromKMS } from '../utils/kms';
-import { mustBeTrue, notNull } from '../utils/assert';
-import { shamirKeyFromReadableString } from '../utils/shamir-key';
-import { combine } from 'shamir-secret-sharing';
+import { mustBeTrue } from '../utils/assert';
+import { recoverPrivateKey } from '../utils/shamir-key';
+import { TransactionStep } from '../models/TransactionStep';
+import ChainTransactionService from './chainTransactionService';
+import SimpleToken from '../contracts/SimpleToken.json';
+import { provider } from '../utils/contracts';
 
 export default class TransactionService {
+  private chainTransactionService;
+
+  constructor() {
+    this.chainTransactionService = new ChainTransactionService();
+  }
+
   async create(params: {
     senderAddress: string;
     shardDevice: string;
@@ -39,15 +47,10 @@ export default class TransactionService {
       throw new NotFoundError('Unknown sender or receiver');
     }
 
-    const decoder = new TextDecoder();
-    const _shardKMS = await decryptFromKMS(sender!.encryptedShard);
-    notNull(new NotFoundError('shard key not found'), _shardKMS);
-    const shardKMS = shamirKeyFromReadableString(_shardKMS!);
-    const secondShareKey = shamirKeyFromReadableString(shardDevice);
-    const combined = await combine([shardKMS, secondShareKey]);
-
-    const privateKey = decoder.decode(combined);
-    console.log(privateKey);
+    const privateKey = await recoverPrivateKey(
+      sender.encryptedShard!,
+      shardDevice,
+    );
     const wallet = new ethers.Wallet(privateKey);
     mustBeTrue(
       new BadRequestError('key not match'),
@@ -82,7 +85,20 @@ export default class TransactionService {
     const receivedAmountInSmallestUnit = BigNumber.from(
       receivedAmount ?? sentAmount,
     ).mul(ten.pow(BigNumber.from(receivedToken.decimals)));
-    const transaction = await Transaction.create({
+
+    const sentTokenContract = new ethers.Contract(
+      sentToken.address,
+      SimpleToken.abi,
+      provider,
+    );
+    const senderAccountBalance = await sentTokenContract.balanceOf(
+      sender.accountAbstractionAddress,
+    );
+    if (sentAmountInSmallestUnit.gt(senderAccountBalance)) {
+      throw new BadRequestError('Insufficient balance');
+    }
+
+    let transaction = await Transaction.create({
       sender: sender.id,
       receiver: receiver.id,
       sentToken: sentToken.id,
@@ -91,7 +107,45 @@ export default class TransactionService {
       receivedAmount: receivedAmountInSmallestUnit.toString(),
       status: 'INIT',
     });
+    transaction = (await Transaction.findByPk(transaction.id, {
+      include: [
+        {
+          model: Account,
+          as: 'senderAccount',
+        },
+        {
+          model: Account,
+          as: 'receiverAccount',
+        },
+        {
+          model: Token,
+          as: 'sentTokenObject',
+        },
+        {
+          model: Token,
+          as: 'receivedTokenObject',
+        },
+      ],
+    }))!;
+    const step = await TransactionStep.create({
+      transactionId: transaction.id,
+      type: 'CHAIN_TRANSACTION',
+      status: 'INIT',
+    });
+
+    const externalId = await this.chainTransactionService.transferToken(
+      transaction,
+      privateKey,
+    );
+    await step.update({
+      externalId,
+      status: 'PROCESSING',
+    });
 
     return transaction;
+  }
+
+  async fetch(transactionId: string) {
+    return (await Transaction.findByPk(transactionId))?.dataValues;
   }
 }

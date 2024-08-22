@@ -7,4 +7,8 @@ export function transactionRoute(router: Router) {
     '/transactions',
     transactionController.create.bind(transactionController),
   );
+  router.get(
+    '/transactions/:transaction_id',
+    transactionController.fetch.bind(transactionController),
+  );
 }

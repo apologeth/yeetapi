@@ -1,17 +1,17 @@
-import { combine, split } from 'shamir-secret-sharing';
+import { split } from 'shamir-secret-sharing';
 import ConflictError from '../errors/conflict';
 import { Account } from '../models/Account';
 import { mustBeNull, mustBeTrue, notNull } from '../utils/assert';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmail } from '../utils/send-email';
 import {
-  shamirKeyFromReadableString,
+  recoverPrivateKey,
   shamirKeyToReadableString,
 } from '../utils/shamir-key';
 import { ethers } from 'ethers';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
-import { decryptFromKMS, encryptToKMS } from '../utils/kms';
+import { encryptToKMS } from '../utils/kms';
 import ChainTransactionService from './chainTransactionService';
 import NotFoundError from '../errors/not-found';
 import {
@@ -121,14 +121,10 @@ export default class AccountService {
     });
     notNull(new NotFoundError('account not found'), account);
 
-    const decoder = new TextDecoder();
-    const _shardKMS = await decryptFromKMS(account!.encryptedShard);
-    notNull(new NotFoundError('shard key not found'), _shardKMS);
-    const shardKMS = shamirKeyFromReadableString(_shardKMS!);
-    const secondShareKey = shamirKeyFromReadableString(shardEmail);
-    const combined = await combine([shardKMS, secondShareKey]);
-
-    const privateKey = decoder.decode(combined);
+    const privateKey = await recoverPrivateKey(
+      account!.encryptedShard,
+      shardEmail,
+    );
     const wallet = new ethers.Wallet(privateKey);
     mustBeTrue(
       new BadRequestError('key not match'),

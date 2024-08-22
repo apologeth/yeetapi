@@ -6,12 +6,17 @@ import { Account } from './Account';
 
 class Transaction extends Model {
   public id!: string;
-  public sender!: Account;
-  public receiver!: Account;
+  public sender!: string;
+  public receiver!: string;
+  public senderAccount!: Account;
+  public receiverAccount!: Account;
   public sentAmount!: string;
   public receivedAmount!: string;
-  public sentToken!: Token;
-  public receivedToken!: Token;
+  public sentToken!: string;
+  public receivedToken!: string;
+  public sentTokenObject!: Token;
+  public receivedTokenObject!: Token;
+  public transactionHash!: string | null;
   public status!: string;
   public createdAt!: string;
   public updatedAt!: string;
@@ -48,6 +53,11 @@ Transaction.init(
     status: {
       type: DataTypes.ENUM('INIT', 'SENDING', 'SENT', 'FAILED'),
     },
+    transactionHash: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: true,
+    },
     createdAt: {
       allowNull: false,
       type: DataTypes.DATE,
@@ -67,18 +77,22 @@ Transaction.init(
 
 Transaction.belongsTo(Account, {
   foreignKey: 'sender',
+  as: 'senderAccount',
 });
 
 Transaction.belongsTo(Account, {
   foreignKey: 'receiver',
+  as: 'receiverAccount',
 });
 
 Transaction.belongsTo(Token, {
   foreignKey: 'sentToken',
+  as: 'sentTokenObject',
 });
 
 Transaction.belongsTo(Token, {
   foreignKey: 'receivedToken',
+  as: 'receivedTokenObject',
 });
 
 export { Transaction };

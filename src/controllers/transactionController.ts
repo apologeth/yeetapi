@@ -50,7 +50,20 @@ export default class TransactionController {
         sentTokenAddress,
         receivedTokenAddress,
       });
-      createSuccessResponse(response, transaction);
+      createSuccessResponse(response, { transactionId: transaction.id });
+    } catch (error: any) {
+      console.log(error);
+      createErrorResponse(response, error);
+    }
+  }
+
+  async fetch(request: Request, response: Response) {
+    try {
+      const { transactionId } = snakeToCamel(request.params);
+      notNull(new BadRequestError('transaction_id is required'), transactionId);
+
+      const transaction = await this.transactionService.fetch(transactionId);
+      createSuccessResponse(response, transaction ?? {});
     } catch (error: any) {
       console.log(error);
       createErrorResponse(response, error);

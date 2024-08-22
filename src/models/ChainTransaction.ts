@@ -25,7 +25,7 @@ ChainTransaction.init(
       unique: true,
     },
     actionType: {
-      type: DataTypes.ENUM('DEPLOY_AA'),
+      type: DataTypes.ENUM('DEPLOY_AA', 'TRANSFER_TOKEN'),
     },
     status: {
       type: DataTypes.ENUM('SUBMITTED', 'CONFIRMED', 'FAILED'),

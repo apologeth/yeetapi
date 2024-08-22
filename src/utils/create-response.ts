@@ -1,10 +1,11 @@
 import { Response } from 'express';
+import { camelToSnake } from './conversion';
 
 export function createSuccessResponse(response: Response, data: object = {}) {
   const resObject = {
     code: 200,
     message: 'Success',
-    data,
+    data: camelToSnake(data),
   };
 
   return response.status(resObject.code).json(resObject);
