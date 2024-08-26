@@ -91,7 +91,7 @@ export default class ChainTransactionService {
       sender: transaction.senderAccount.accountAbstractionAddress,
       initCode: '0x',
       target:
-        transaction.sentToken ??
+        transaction.sentTokenObject?.address ??
         transaction.receiverAccount.accountAbstractionAddress,
       value: transaction.sentToken ? '0' : transaction.sentAmount,
       callData,
