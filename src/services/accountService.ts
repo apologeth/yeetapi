@@ -135,6 +135,9 @@ export default class AccountService {
 
     const encoder = new TextEncoder();
     const shares = await split(encoder.encode(privateKey), 3, 2);
+    const shardKMS = shamirKeyToReadableString(shares[0]);
+    const encryptedShard = await encryptToKMS(shardKMS);
+    await account!.update({ encryptedShard });
     const tokens = await this._generateToken(account!);
     return {
       id: account!.id,
