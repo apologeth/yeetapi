@@ -1,6 +1,6 @@
 import BadRequestError from '../errors/bad-request';
 import { Token } from '../models/Token';
-import { BigNumber, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { Transaction } from '../models/Transaction';
 import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
@@ -10,6 +10,7 @@ import { TransactionStep } from '../models/TransactionStep';
 import ChainTransactionService from './chainTransactionService';
 import SimpleToken from '../contracts/SimpleToken.json';
 import { provider } from '../utils/contracts';
+import BigNumber from 'bignumber.js';
 
 export default class TransactionService {
   private chainTransactionService;
@@ -78,13 +79,13 @@ export default class TransactionService {
       throw new BadRequestError('Unknown received token');
     }
 
-    const ten = BigNumber.from('10');
-    const sentAmountInSmallestUnit = BigNumber.from(sentAmount).mul(
-      ten.pow(BigNumber.from(sentToken.decimals)),
+    const ten = new BigNumber('10');
+    const sentAmountInSmallestUnit = BigNumber(sentAmount!).multipliedBy(
+      ten.pow(BigNumber(sentToken.decimals)),
     );
-    const receivedAmountInSmallestUnit = BigNumber.from(
-      receivedAmount ?? sentAmount,
-    ).mul(ten.pow(BigNumber.from(receivedToken.decimals)));
+    const receivedAmountInSmallestUnit = BigNumber(
+      (receivedAmount ?? sentAmount)!,
+    ).multipliedBy(ten.pow(BigNumber(receivedToken.decimals)));
 
     const sentTokenContract = new ethers.Contract(
       sentToken.address,
