@@ -2,7 +2,10 @@ import { Token } from '../models/Token';
 
 export default class TokenService {
   async fetch() {
-    return await Token.findAll();
+    return (await Token.findAll()).map(token => {
+      console.log(token);
+      return token.dataValues;
+    });
   }
 
   async create(params: {
