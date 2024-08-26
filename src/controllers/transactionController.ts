@@ -39,14 +39,6 @@ export default class TransactionController {
           receiverAddress,
         );
         notNull(new BadRequestError('shard_device is required'), shardDevice);
-        notNull(
-          new BadRequestError('sent_token_address is required'),
-          sentTokenAddress,
-        );
-        notNull(
-          new BadRequestError('recieved_token_address is required'),
-          receivedTokenAddress,
-        );
 
         const transaction = await this.transactionService.create({
           senderAddress,

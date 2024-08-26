@@ -22,7 +22,7 @@ export async function setupUserOpExecute(params: {
   sender: string;
   initCode: string;
   target: string;
-  value: number;
+  value: string;
   callData: string;
 }): Promise<UserOperation> {
   const Account = new ethers.ContractFactory(

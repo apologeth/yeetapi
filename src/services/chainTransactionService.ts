@@ -47,7 +47,7 @@ export default class ChainTransactionService {
       sender: accountAbstractionAddress,
       initCode,
       target: accountAbstractionAddress,
-      value: 0,
+      value: '0',
       callData,
     });
 
@@ -73,23 +73,27 @@ export default class ChainTransactionService {
     opts: { dbTransaction: DBTransaction },
   ) {
     const signer = new ethers.Wallet(accountPrivateKey);
-    const token = new ethers.Contract(
-      transaction.sentTokenObject.address,
-      SimpleToken.abi,
-      provider,
-    );
-
-    const callData = token.interface.encodeFunctionData('transfer', [
-      transaction.receiverAccount.accountAbstractionAddress,
-      transaction.receivedAmount,
-    ]);
+    let callData = '0x';
+    if (transaction.sentToken && transaction.sentTokenObject) {
+      const token = new ethers.Contract(
+        transaction.sentTokenObject.address,
+        SimpleToken.abi,
+        provider,
+      );
+      callData = token.interface.encodeFunctionData('transfer', [
+        transaction.receiverAccount.accountAbstractionAddress,
+        transaction.receivedAmount,
+      ]);
+    }
 
     const userOp = await setupUserOpExecute({
       signer,
       sender: transaction.senderAccount.accountAbstractionAddress,
       initCode: '0x',
-      target: token.address,
-      value: 0,
+      target:
+        transaction.sentToken ??
+        transaction.receiverAccount.accountAbstractionAddress,
+      value: transaction.sentToken ? '0' : transaction.sentAmount,
       callData,
     });
 

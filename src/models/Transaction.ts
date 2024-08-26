@@ -12,10 +12,10 @@ class Transaction extends Model {
   public receiverAccount!: Account;
   public sentAmount!: string;
   public receivedAmount!: string;
-  public sentToken!: string;
-  public receivedToken!: string;
-  public sentTokenObject!: Token;
-  public receivedTokenObject!: Token;
+  public sentToken!: string | null;
+  public receivedToken!: string | null;
+  public sentTokenObject!: Token | null;
+  public receivedTokenObject!: Token | null;
   public transactionHash!: string | null;
   public status!: string;
   public createdAt!: string;

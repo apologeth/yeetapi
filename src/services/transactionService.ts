@@ -60,54 +60,59 @@ export default class TransactionService {
       new BadRequestError('key not match'),
       sender!.address === wallet.address,
     );
-
-    if (!sentAmount && !receivedAmount) {
-      throw new BadRequestError(
-        'sentAmount or receivedAmount must be not undefined',
-      );
-    }
-
     const sentToken = await Token.findOne({
-      where: { address: sentTokenAddress },
+      where: { address: sentTokenAddress ?? '' },
     });
     const receivedToken = await Token.findOne({
-      where: { address: receivedTokenAddress },
+      where: { address: receivedTokenAddress ?? '' },
     });
 
-    if (!sentToken) {
+    if (sentTokenAddress && !sentToken) {
       throw new BadRequestError('Unknown sent token');
     }
 
-    if (!receivedToken) {
+    if (receivedTokenAddress && !receivedToken) {
       throw new BadRequestError('Unknown received token');
     }
 
+    const tokenDecimals = sentToken
+      ? BigNumber(sentToken.decimals)
+      : BigNumber(18);
     const ten = new BigNumber('10');
     const sentAmountInSmallestUnit = BigNumber(sentAmount!).multipliedBy(
-      ten.pow(BigNumber(sentToken.decimals)),
+      ten.pow(tokenDecimals),
     );
     const receivedAmountInSmallestUnit = BigNumber(
       (receivedAmount ?? sentAmount)!,
-    ).multipliedBy(ten.pow(BigNumber(receivedToken.decimals)));
+    ).multipliedBy(ten.pow(tokenDecimals));
 
-    const sentTokenContract = new ethers.Contract(
-      sentToken.address,
-      SimpleToken.abi,
-      provider,
-    );
-    const senderAccountBalance = await sentTokenContract.balanceOf(
-      sender.accountAbstractionAddress,
-    );
-    if (sentAmountInSmallestUnit.gt(senderAccountBalance)) {
-      throw new BadRequestError('Insufficient balance');
+    if (sentToken) {
+      const sentTokenContract = new ethers.Contract(
+        sentToken.address,
+        SimpleToken.abi,
+        provider,
+      );
+      const senderAccountBalance = await sentTokenContract.balanceOf(
+        sender.accountAbstractionAddress,
+      );
+      if (sentAmountInSmallestUnit.gt(senderAccountBalance)) {
+        throw new BadRequestError('Insufficient balance');
+      }
+    } else {
+      const nativeTokenBalance = await provider.getBalance(
+        sender.accountAbstractionAddress,
+      );
+      if (sentAmountInSmallestUnit.gt(nativeTokenBalance.toString())) {
+        throw new BadRequestError('Insufficient balance');
+      }
     }
 
     let transaction = await Transaction.create(
       {
         sender: sender.id,
         receiver: receiver.id,
-        sentToken: sentToken.id,
-        receivedToken: receivedToken.id,
+        sentToken: sentToken?.id,
+        receivedToken: receivedToken?.id,
         sentAmount: sentAmountInSmallestUnit.toString(),
         receivedAmount: receivedAmountInSmallestUnit.toString(),
         status: 'INIT',
@@ -133,7 +138,7 @@ export default class TransactionService {
           as: 'receivedTokenObject',
         },
       ],
-      transaction: opts.dbTransaction
+      transaction: opts.dbTransaction,
     }))!;
     const step = await TransactionStep.create(
       {
