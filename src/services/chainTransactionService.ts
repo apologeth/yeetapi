@@ -123,7 +123,6 @@ export default class ChainTransactionService {
     if (responseFromBundler.data.error) {
       throw Error(responseFromBundler.data.error.message);
     }
-    console.log(responseFromBundler.data);
     return responseFromBundler.data.result;
   }
 }
