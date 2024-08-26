@@ -11,6 +11,7 @@ import ChainTransactionService from './chainTransactionService';
 import SimpleToken from '../contracts/SimpleToken.json';
 import { provider } from '../utils/contracts';
 import BigNumber from 'bignumber.js';
+import { Transaction as DBTransaction } from 'sequelize';
 
 export default class TransactionService {
   private chainTransactionService;
@@ -27,6 +28,7 @@ export default class TransactionService {
     receivedAmount?: number;
     sentTokenAddress: string;
     receivedTokenAddress: string;
+    opts: { dbTransaction: DBTransaction };
   }) {
     const {
       senderAddress,
@@ -36,6 +38,7 @@ export default class TransactionService {
       receivedAmount,
       sentTokenAddress,
       receivedTokenAddress,
+      opts,
     } = params;
 
     const sender = await Account.findOne({
@@ -99,15 +102,18 @@ export default class TransactionService {
       throw new BadRequestError('Insufficient balance');
     }
 
-    let transaction = await Transaction.create({
-      sender: sender.id,
-      receiver: receiver.id,
-      sentToken: sentToken.id,
-      receivedToken: receivedToken.id,
-      sentAmount: sentAmountInSmallestUnit.toString(),
-      receivedAmount: receivedAmountInSmallestUnit.toString(),
-      status: 'INIT',
-    });
+    let transaction = await Transaction.create(
+      {
+        sender: sender.id,
+        receiver: receiver.id,
+        sentToken: sentToken.id,
+        receivedToken: receivedToken.id,
+        sentAmount: sentAmountInSmallestUnit.toString(),
+        receivedAmount: receivedAmountInSmallestUnit.toString(),
+        status: 'INIT',
+      },
+      { transaction: opts?.dbTransaction },
+    );
     transaction = (await Transaction.findByPk(transaction.id, {
       include: [
         {
@@ -127,21 +133,29 @@ export default class TransactionService {
           as: 'receivedTokenObject',
         },
       ],
+      transaction: opts.dbTransaction
     }))!;
-    const step = await TransactionStep.create({
-      transactionId: transaction.id,
-      type: 'CHAIN_TRANSACTION',
-      status: 'INIT',
-    });
+    const step = await TransactionStep.create(
+      {
+        transactionId: transaction.id,
+        type: 'CHAIN_TRANSACTION',
+        status: 'INIT',
+      },
+      { transaction: opts?.dbTransaction },
+    );
 
     const externalId = await this.chainTransactionService.transferToken(
       transaction,
       privateKey,
+      opts,
     );
-    await step.update({
-      externalId,
-      status: 'PROCESSING',
-    });
+    await step.update(
+      {
+        externalId,
+        status: 'PROCESSING',
+      },
+      { transaction: opts?.dbTransaction },
+    );
 
     return transaction;
   }

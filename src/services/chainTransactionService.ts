@@ -7,9 +7,14 @@ import axios from 'axios';
 import { ChainTransaction } from '../models/ChainTransaction';
 import { Transaction } from '../models/Transaction';
 import SimpleToken from '../contracts/SimpleToken.json';
+import { Transaction as DBTransaction } from 'sequelize';
 
 export default class ChainTransactionService {
-  async deployAccountAbstraction(email: string, accountPrivateKey: string) {
+  async deployAccountAbstraction(
+    email: string,
+    accountPrivateKey: string,
+    opts: { dbTransaction: DBTransaction },
+  ) {
     const signer = new ethers.Wallet(accountPrivateKey);
     const { langitAccountFactory } = await getContracts();
 
@@ -47,11 +52,14 @@ export default class ChainTransactionService {
     });
 
     const userOperationHash = await this.send(userOp);
-    await ChainTransaction.create({
-      userOperationHash,
-      actionType: 'DEPLOY_AA',
-      status: 'SUBMITTED',
-    });
+    await ChainTransaction.create(
+      {
+        userOperationHash,
+        actionType: 'DEPLOY_AA',
+        status: 'SUBMITTED',
+      },
+      { transaction: opts.dbTransaction },
+    );
 
     return {
       accountAbstractionAddress,
@@ -59,7 +67,11 @@ export default class ChainTransactionService {
     };
   }
 
-  async transferToken(transaction: Transaction, accountPrivateKey: string) {
+  async transferToken(
+    transaction: Transaction,
+    accountPrivateKey: string,
+    opts: { dbTransaction: DBTransaction },
+  ) {
     const signer = new ethers.Wallet(accountPrivateKey);
     const token = new ethers.Contract(
       transaction.sentTokenObject.address,
@@ -82,11 +94,14 @@ export default class ChainTransactionService {
     });
 
     const userOperationHash = await this.send(userOp);
-    await ChainTransaction.create({
-      userOperationHash,
-      actionType: 'TRANSFER_TOKEN',
-      status: 'SUBMITTED',
-    });
+    await ChainTransaction.create(
+      {
+        userOperationHash,
+        actionType: 'TRANSFER_TOKEN',
+        status: 'SUBMITTED',
+      },
+      { transaction: opts.dbTransaction },
+    );
 
     return userOperationHash;
   }

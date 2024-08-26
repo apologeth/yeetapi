@@ -21,11 +21,7 @@ import {
 } from '../utils/auth';
 import Unauthorized from '../errors/unauthorized';
 import BadRequestError from '../errors/bad-request';
-
-type CreateAccountResult = {
-  account: Account;
-  shardDevice: string;
-};
+import { Transaction as DBTransaction } from 'sequelize';
 
 export default class AccountService {
   private chainTransactionService;
@@ -34,10 +30,12 @@ export default class AccountService {
     this.chainTransactionService = new ChainTransactionService();
   }
 
-  async createAccount(
-    email: string,
-    password?: string,
-  ): Promise<CreateAccountResult> {
+  async createAccount(params: {
+    email: string;
+    password?: string;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    const { email, password, opts } = params;
     const existingAccount = await Account.findOne({ where: { email } });
     mustBeNull(
       new ConflictError(`email: ${email} is already registered`),
@@ -55,19 +53,14 @@ export default class AccountService {
     const shardKMS = shamirKeyToReadableString(shares[0]);
     const encryptedShard = await encryptToKMS(shardKMS);
 
-    await sendEmail(
-      email,
-      'Your Secret Key',
-      `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
-    );
     const { accountAbstractionAddress, userOperationHash } =
       await this.chainTransactionService.deployAccountAbstraction(
         email,
         privateKey,
+        opts,
       );
-
-    return {
-      account: await Account.create({
+    const account = await Account.create(
+      {
         email,
         password: password ? await hashPassword(password) : password,
         address,
@@ -75,14 +68,29 @@ export default class AccountService {
         accountAbstractionAddress,
         userOperationHash,
         status: 'INIT',
-      }),
+      },
+      {
+        transaction: opts.dbTransaction,
+      },
+    );
+    await sendEmail(
+      email,
+      'Your Secret Key',
+      `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
+    );
+    const tokens = await this._generateToken(account);
+
+    return {
+      id: account.id,
       shardDevice: shamirKeyToReadableString(shares[2]),
+      ...tokens,
     };
   }
 
   async createAccountWithGoogleToken(
     googleCode: string,
-  ): Promise<CreateAccountResult> {
+    opts: { dbTransaction: DBTransaction },
+  ) {
     const resFromGoogle = await axios.post(
       'https://oauth2.googleapis.com/token',
       {
@@ -106,16 +114,10 @@ export default class AccountService {
     const userDetails = userResponse.data;
     const email = userDetails.email;
 
-    return await this.createAccount(email);
+    return await this.createAccount({ email, opts });
   }
 
-  async recoverAccount(
-    email: string,
-    shardEmail: string,
-  ): Promise<{
-    account: Account;
-    shardDevice: string;
-  }> {
+  async recoverAccount(email: string, shardEmail: string) {
     const account = await Account.findOne({
       where: { email },
     });
@@ -133,9 +135,11 @@ export default class AccountService {
 
     const encoder = new TextEncoder();
     const shares = await split(encoder.encode(privateKey), 3, 2);
+    const tokens = await this._generateToken(account!);
     return {
-      account: account!,
+      id: account!.id,
       shardDevice: shamirKeyToReadableString(shares[2]),
+      ...tokens,
     };
   }
 
@@ -143,6 +147,10 @@ export default class AccountService {
     const account = await Account.findByPk(accountId);
     notNull(new NotFoundError('account is not found'), account);
 
+    return this._generateToken(account!);
+  }
+
+  private async _generateToken(account: Account) {
     const accessToken = generateAccessToken({
       id: account!.id,
       email: account!.email,
@@ -207,6 +215,10 @@ export default class AccountService {
       await verifyPassword(password, account!.password),
     );
 
-    return account;
+    const tokens = await this._generateToken(account!);
+    return {
+      id: account!.id,
+      ...tokens,
+    };
   }
 }

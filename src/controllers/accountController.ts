@@ -1,13 +1,11 @@
 import { Request, Response } from 'express';
-import {
-  createErrorResponse,
-  createSuccessResponse,
-} from '../utils/create-response';
 import { snakeToCamel } from '../utils/conversion';
 import BadRequestError from '../errors/bad-request';
 import { mustBeTrue, notNull } from '../utils/assert';
 import AccountService from '../services/accountService';
 import Unauthorized from '../errors/unauthorized';
+import { Transaction as DBTransaction } from 'sequelize';
+import { createRequestProcessor } from '../utils/request-processor';
 
 export default class AccountController {
   private accountService: AccountService;
@@ -17,129 +15,128 @@ export default class AccountController {
   }
 
   async createAccount(request: Request, response: Response) {
-    try {
-      const { email, password } = snakeToCamel(request.body);
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (
+        request: Request,
+        dbTransaction?: DBTransaction,
+      ) => {
+        const { email, password } = snakeToCamel(request.body);
 
-      notNull(new BadRequestError('email is required'), email);
-      notNull(new BadRequestError('password is required'), password);
-      const { account, shardDevice } = await this.accountService.createAccount(
-        email,
-        password,
-      );
-      const { accessToken, refreshToken } =
-        await this.accountService.generateToken(account.id);
-
-      createSuccessResponse(response, {
-        id: account.id,
-        accessToken,
-        refreshToken,
-        shardDevice,
-      });
-    } catch (error: any) {
-      console.log(error);
-      createErrorResponse(response, error);
-    }
+        notNull(new BadRequestError('email is required'), email);
+        notNull(new BadRequestError('password is required'), password);
+        return await this.accountService.createAccount({
+          email,
+          password,
+          opts: { dbTransaction: dbTransaction! },
+        });
+      },
+      opts: {
+        useDBTransaction: true,
+        context: 'Create Account',
+      },
+    });
   }
 
   async authWithGoogle(request: Request, response: Response) {
-    try {
-      const { googleCode } = snakeToCamel(request.body);
-      notNull(new BadRequestError('google_code is required'), googleCode);
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (
+        request: Request,
+        dbTransaction?: DBTransaction,
+      ) => {
+        const { googleCode } = snakeToCamel(request.body);
+        notNull(new BadRequestError('google_code is required'), googleCode);
 
-      const { account, shardDevice } =
-        await this.accountService.createAccountWithGoogleToken(googleCode);
-      const { accessToken, refreshToken } =
-        await this.accountService.generateToken(account.id);
-
-      createSuccessResponse(response, {
-        id: account.id,
-        accessToken,
-        refreshToken,
-        shardDevice,
-      });
-    } catch (error: any) {
-      console.log(error);
-      createErrorResponse(response, error);
-    }
+        return await this.accountService.createAccountWithGoogleToken(
+          googleCode,
+          { dbTransaction: dbTransaction! },
+        );
+      },
+      opts: {
+        useDBTransaction: true,
+        context: 'Create Account With Google Auth',
+      },
+    });
   }
 
   async recoverAccount(request: Request, response: Response) {
-    try {
-      //shamirKey from email
-      const { email, shardEmail } = snakeToCamel(request.body);
-      notNull(new BadRequestError('email is required'), email);
-      notNull(new BadRequestError('shard_email is required'), shardEmail);
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (request: Request) => {
+        const { email, shardEmail } = snakeToCamel(request.body);
+        notNull(new BadRequestError('email is required'), email);
+        notNull(new BadRequestError('shard_email is required'), shardEmail);
 
-      const { account, shardDevice } = await this.accountService.recoverAccount(
-        email,
-        shardEmail,
-      );
-      const { accessToken, refreshToken } =
-        await this.accountService.generateToken(account.id);
-
-      createSuccessResponse(response, {
-        id: account.id,
-        accessToken,
-        refreshToken,
-        shardDevice,
-      });
-    } catch (error: any) {
-      console.log(error);
-      createErrorResponse(response, error);
-    }
+        return await this.accountService.recoverAccount(email, shardEmail);
+      },
+      opts: {
+        useDBTransaction: false,
+        context: 'Recover Account',
+      },
+    });
   }
 
   async fetchAccount(request: Request, response: Response) {
-    try {
-      const accountId = request.params.id;
-      const authAccountId = (request as any).auth.id;
-      notNull(new BadRequestError('id is required'), accountId);
-      mustBeTrue(
-        new BadRequestError('invalid credentials'),
-        authAccountId === accountId,
-      );
-
-      createSuccessResponse(
-        response,
-        await this.accountService.fetchAccount(accountId),
-      );
-    } catch (error: any) {
-      createErrorResponse(response, error);
-    }
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (request: Request) => {
+        const accountId = request.params.id;
+        const authAccountId = (request as any).auth.id;
+        notNull(new BadRequestError('id is required'), accountId);
+        mustBeTrue(
+          new BadRequestError('invalid credentials'),
+          authAccountId === accountId,
+        );
+        return await this.accountService.fetchAccount(accountId);
+      },
+      opts: {
+        useDBTransaction: false,
+        context: 'Fetch Account',
+      },
+    });
   }
 
   async refreshToken(request: Request, response: Response) {
-    try {
-      const { refreshToken } = snakeToCamel(request.body);
-      notNull(new Unauthorized('missing refresh token'), refreshToken);
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (request: Request) => {
+        const { refreshToken } = snakeToCamel(request.body);
+        notNull(new Unauthorized('missing refresh token'), refreshToken);
 
-      const accessToken = await this.accountService.refreshToken(refreshToken);
-      createSuccessResponse(response, {
-        accessToken,
-      });
-    } catch (error: any) {
-      createErrorResponse(response, error);
-    }
+        const accessToken =
+          await this.accountService.refreshToken(refreshToken);
+        return {
+          accessToken,
+        };
+      },
+      opts: {
+        useDBTransaction: false,
+        context: 'Refresh Token',
+      },
+    });
   }
 
   async login(request: Request, response: Response) {
-    try {
-      const { email, password } = snakeToCamel(request.body);
-      notNull(new BadRequestError('email is required'), email);
-      notNull(new BadRequestError('password is required'), password);
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (request: Request) => {
+        const { email, password } = snakeToCamel(request.body);
+        notNull(new BadRequestError('email is required'), email);
+        notNull(new BadRequestError('password is required'), password);
 
-      const account = await this.accountService.login(email, password);
-      const { accessToken, refreshToken } =
-        await this.accountService.generateToken(account!.id);
-
-      createSuccessResponse(response, {
-        id: account!.id,
-        accessToken,
-        refreshToken,
-      });
-    } catch (error: any) {
-      console.log(error);
-      createErrorResponse(response, error);
-    }
+        return await this.accountService.login(email, password);
+      },
+      opts: {
+        useDBTransaction: false,
+        context: 'Login Account',
+      },
+    });
   }
 }
