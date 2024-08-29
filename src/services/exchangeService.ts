@@ -37,6 +37,9 @@ export default class ExchangeService {
   async exchangeTokenToFiat(tokenAmount: number, fiatAmount: number) {
     const { tokenAmount: expectedTokenAmount, price } = await this.getTokenAmount(fiatAmount);
     mustBeTrue(new BadRequestError('tokenAmount is too low'), tokenAmount >= expectedTokenAmount);
+    let balance = await this.exchange.fetchBalance();
+    mustBeTrue(new BadRequestError('insufficient vault balance'), balance['USDT']?.free != null && balance['USDT'].free > tokenAmount);
+    
     let result = await this.exchange.createOrder('USDT/IDR', 'limit', 'sell', tokenAmount, price);
     return result;
   }
