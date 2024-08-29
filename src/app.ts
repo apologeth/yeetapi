@@ -5,6 +5,7 @@ import { clientRoute } from './routes/client';
 import WorkerService from './services/workerService';
 import { tokenRoute } from './routes/token';
 import { transactionRoute } from './routes/transaction';
+import { exchangeRoute } from './routes/exchange';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,7 @@ accountRoute(router);
 clientRoute(router);
 tokenRoute(router);
 transactionRoute(router);
+exchangeRoute(router);
 app.use('/api', router);
 
 const workerService = new WorkerService();
@@ -49,6 +51,6 @@ const worker = async () => {
 };
 
 // Run the worker every 1 minute
-setInterval(worker, 500);
+//setInterval(worker, 500);
 
 export default app;

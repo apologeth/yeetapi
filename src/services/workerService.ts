@@ -4,6 +4,8 @@ import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
 import { TransactionStep } from '../models/TransactionStep';
 import { Transaction } from '../models/Transaction';
+import { sequelize } from '../config/database';
+import { Transaction as DBTransaction } from 'sequelize';
 
 export default class WorkerService {
   async checkTransactionStatus() {
@@ -33,11 +35,18 @@ export default class WorkerService {
         return;
       }
 
-      const status = receipt.status === 1 ? 'CONFIRMED' : 'FAILED';
-      await chainTransaction.update({
-        status,
-      });
-      await this.nextStep(chainTransaction, logs[0].transactionHash);
+      const dbTransaction = await sequelize.transaction();
+      try {
+        const status = receipt.status === 1 ? 'CONFIRMED' : 'FAILED';
+        await chainTransaction.update({
+          status,
+        }, { transaction: dbTransaction});
+        await this.nextStep(chainTransaction, logs[0].transactionHash, dbTransaction);
+        await dbTransaction.commit();
+      } catch(e) {
+        console.log(`Failed to update chain transaction ${chainTransaction.userOperationHash}, error = ${e}`);
+        await dbTransaction.rollback();
+      }
     });
     await Promise.all(promises);
   }
@@ -45,16 +54,18 @@ export default class WorkerService {
   private async nextStep(
     chainTransaction: ChainTransaction,
     transactionHash: string,
+    dbTransaction: DBTransaction,
   ) {
     try {
       switch (chainTransaction.actionType) {
         case 'DEPLOY_AA':
-          await this.updateAccountStatus(chainTransaction);
+          await this.updateAccountStatus(chainTransaction, dbTransaction);
           break;
         case 'TRANSFER_TOKEN':
           await this.updateTransactionStepStatus(
             chainTransaction,
             transactionHash,
+            dbTransaction,
           );
           break;
         default:
@@ -65,7 +76,7 @@ export default class WorkerService {
     }
   }
 
-  private async updateAccountStatus(chainTransaction: ChainTransaction) {
+  private async updateAccountStatus(chainTransaction: ChainTransaction, dbTransaction: DBTransaction) {
     const account = await Account.findOne({
       where: { userOperationHash: chainTransaction.userOperationHash },
     });
@@ -79,12 +90,13 @@ export default class WorkerService {
       chainTransaction.status === 'CONFIRMED' ? 'CREATED' : 'FAILED';
     await account.update({
       status,
-    });
+    }, { transaction: dbTransaction });
   }
 
   private async updateTransactionStepStatus(
     chainTransaction: ChainTransaction,
     transactionHash: string,
+    dbTransaction: DBTransaction,
   ) {
     const step = await TransactionStep.findOne({
       where: { externalId: chainTransaction.userOperationHash },
@@ -99,7 +111,7 @@ export default class WorkerService {
       chainTransaction.status === 'CONFIRMED' ? 'SUCCESS' : 'FAILED';
     await step.update({
       status,
-    });
+    }, { transaction: dbTransaction });
 
     const transaction = await Transaction.findByPk(step.transactionId);
     if (!transaction) {
@@ -112,6 +124,6 @@ export default class WorkerService {
     transaction.update({
       status: transactionStatus,
       transactionHash,
-    });
+    }, { transaction: dbTransaction });
   }
 }
