@@ -4,19 +4,27 @@ import { v4 as uuidv4 } from 'uuid';
 import { Token } from './Token';
 import { Account } from './Account';
 
+export enum TRANSFER_TYPE {
+  CRYPTO_TO_CRYPTO = 'CRYPTO_TO_CRYPTO',
+  FIAT_TO_CRYPTO = 'FIAT_TO_CRYPTO',
+  CRYPTO_TO_FIAT = 'CRYPTO_TO_FIAT',
+  NATIVE_TO_NATIVE = 'NATIVE_TO_NATIVE',
+}
+
 class Transaction extends Model {
   public id!: string;
   public sender!: string;
-  public receiver!: string;
-  public senderAccount!: Account;
-  public receiverAccount!: Account;
+  public receiver!: string | undefined | null;
+  public senderAccount!: Account | undefined | null;
+  public receiverAccount!: Account | undefined | null;
   public sentAmount!: string;
-  public receivedAmount!: string;
-  public sentToken!: string | null;
-  public receivedToken!: string | null;
-  public sentTokenObject!: Token | null;
-  public receivedTokenObject!: Token | null;
-  public transactionHash!: string | null;
+  public receivedAmount!: string | undefined | null;
+  public sentToken!: string | undefined | null;
+  public receivedToken!: string | undefined | null;
+  public sentTokenDetails!: Token | undefined | null;
+  public receivedTokenDetails!: Token | undefined | null;
+  public transactionHash!: string | undefined | null;
+  public transferType!: TRANSFER_TYPE;
   public status!: string;
   public createdAt!: string;
   public updatedAt!: string;
@@ -58,6 +66,11 @@ Transaction.init(
       unique: true,
       allowNull: true,
     },
+    transferType: {
+      type: DataTypes.ENUM(...Object.keys(TRANSFER_TYPE)),
+      defaultValue: 'CRYPTO_TO_CRYPTO',
+      allowNull: false,
+    },
     createdAt: {
       allowNull: false,
       type: DataTypes.DATE,
@@ -87,12 +100,12 @@ Transaction.belongsTo(Account, {
 
 Transaction.belongsTo(Token, {
   foreignKey: 'sentToken',
-  as: 'sentTokenObject',
+  as: 'sentTokenDetails',
 });
 
 Transaction.belongsTo(Token, {
   foreignKey: 'receivedToken',
-  as: 'receivedTokenObject',
+  as: 'receivedTokenDetails',
 });
 
 export { Transaction };

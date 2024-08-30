@@ -1,7 +1,6 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
-import { Transaction } from './Transaction';
 
 class TransactionStep extends Model {
   public id!: string;
@@ -9,6 +8,12 @@ class TransactionStep extends Model {
   public externalId!: string;
   public type!: string;
   public status!: string;
+  public priority!: number;
+  public senderAddress!: string | undefined | null;
+  public receiverAddress!: string | undefined | null;
+  public tokenAddress!: string | undefined | null;
+  public tokenAmount!: string;
+  public fiatAmount!: string | undefined | null;
   public createdAt!: string;
   public updatedAt!: string;
 }
@@ -29,10 +34,29 @@ TransactionStep.init(
       type: DataTypes.STRING,
     },
     type: {
-      type: DataTypes.ENUM('CHAIN_TRANSACTION'),
+      type: DataTypes.ENUM('CHAIN_TRANSACTION', 'EXCHANGE_TO_FIAT'),
     },
     status: {
       type: DataTypes.ENUM('INIT', 'PROCESSING', 'SUCCESS', 'FAILED'),
+    },
+    priority: {
+      type: DataTypes.NUMBER,
+      allowNull: false,
+    },
+    senderAddress: {
+      type: DataTypes.STRING,
+    },
+    receiverAddress: {
+      type: DataTypes.STRING,
+    },
+    tokenAddress: {
+      type: DataTypes.STRING,
+    },
+    tokenAmount: {
+      type: DataTypes.STRING,
+    },
+    fiatAmount: {
+      type: DataTypes.STRING,
     },
     createdAt: {
       allowNull: false,
@@ -50,13 +74,5 @@ TransactionStep.init(
     timestamps: true,
   },
 );
-
-Transaction.hasMany(TransactionStep, {
-  foreignKey: 'transactionId',
-});
-
-TransactionStep.belongsTo(Transaction, {
-  foreignKey: 'transactionId',
-});
 
 export { TransactionStep };

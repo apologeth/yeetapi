@@ -41,7 +41,10 @@ const worker = async () => {
     // Simulate some asynchronous work
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    await workerService.checkTransactionStatus();
+    await Promise.all([
+      workerService.checkChainTransactionStatus(),
+      workerService.checkExchangeStatus(),
+    ]);
     console.log('Worker completed at', new Date().toLocaleTimeString());
   } catch (error) {
     console.error('Error in worker:', error);
@@ -51,6 +54,6 @@ const worker = async () => {
 };
 
 // Run the worker every 1 minute
-//setInterval(worker, 500);
+setInterval(worker, 500);
 
 export default app;

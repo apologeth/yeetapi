@@ -2,18 +2,63 @@ import { getContracts, provider } from '../utils/contracts';
 import { ChainTransaction } from '../models/ChainTransaction';
 import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
-import { TransactionStep } from '../models/TransactionStep';
-import { Transaction } from '../models/Transaction';
 import { sequelize } from '../config/database';
 import { Transaction as DBTransaction } from 'sequelize';
+import TransactionService from './transactionService';
+import { Exchange } from '../models/Exchange';
+import { cryptoExchange } from '../utils/crypto-exchange';
 
 export default class WorkerService {
-  async checkTransactionStatus() {
+  private transactionService: TransactionService;
+
+  constructor() {
+    this.transactionService = new TransactionService();
+  }
+
+  async checkExchangeStatus() {
+    const exchanges = await Exchange.findAll({
+      where: { status: 'OPENED' },
+      order: ['createdAt'],
+      limit: 10,
+    });
+    const promises = exchanges.map(async (exchange) => {
+      const order = await cryptoExchange.fetchOrder(exchange.orderId);
+      if (order.status === 'open') {
+        return;
+      }
+      const dbTransaction = await sequelize.transaction();
+      try {
+        const status = order.status === 'closed' ? 'SOLD' : 'FAILED';
+        await exchange.update(
+          {
+            status,
+          },
+          { transaction: dbTransaction },
+        );
+        await this.transactionService.finalizeTransactionStep(
+          exchange.orderId,
+          status === 'SOLD' ? 'SUCCESS' : 'FAILED',
+          undefined,
+          { dbTransaction },
+        );
+        await dbTransaction.commit();
+      } catch (e) {
+        console.log(
+          `Failed to update exchange ${exchange.orderId}, error = ${e}`,
+        );
+        await dbTransaction.rollback();
+      }
+    });
+    await Promise.all(promises);
+  }
+
+  async checkChainTransactionStatus() {
     const chainTransactions = await ChainTransaction.findAll({
       where: { status: 'SUBMITTED' },
       order: ['createdAt'],
       limit: 10,
     });
+
     const promises = chainTransactions.map(async (chainTransaction) => {
       const { entrypoint } = await getContracts();
       const filter = entrypoint.filters.UserOperationEvent(
@@ -38,13 +83,22 @@ export default class WorkerService {
       const dbTransaction = await sequelize.transaction();
       try {
         const status = receipt.status === 1 ? 'CONFIRMED' : 'FAILED';
-        await chainTransaction.update({
-          status,
-        }, { transaction: dbTransaction});
-        await this.nextStep(chainTransaction, logs[0].transactionHash, dbTransaction);
+        await chainTransaction.update(
+          {
+            status,
+          },
+          { transaction: dbTransaction },
+        );
+        await this.nextStep(
+          chainTransaction,
+          logs[0].transactionHash,
+          dbTransaction,
+        );
         await dbTransaction.commit();
-      } catch(e) {
-        console.log(`Failed to update chain transaction ${chainTransaction.userOperationHash}, error = ${e}`);
+      } catch (e) {
+        console.log(
+          `Failed to update chain transaction ${chainTransaction.userOperationHash}, error = ${e}`,
+        );
         await dbTransaction.rollback();
       }
     });
@@ -76,7 +130,10 @@ export default class WorkerService {
     }
   }
 
-  private async updateAccountStatus(chainTransaction: ChainTransaction, dbTransaction: DBTransaction) {
+  private async updateAccountStatus(
+    chainTransaction: ChainTransaction,
+    dbTransaction: DBTransaction,
+  ) {
     const account = await Account.findOne({
       where: { userOperationHash: chainTransaction.userOperationHash },
     });
@@ -88,9 +145,12 @@ export default class WorkerService {
 
     const status =
       chainTransaction.status === 'CONFIRMED' ? 'CREATED' : 'FAILED';
-    await account.update({
-      status,
-    }, { transaction: dbTransaction });
+    await account.update(
+      {
+        status,
+      },
+      { transaction: dbTransaction },
+    );
   }
 
   private async updateTransactionStepStatus(
@@ -98,32 +158,13 @@ export default class WorkerService {
     transactionHash: string,
     dbTransaction: DBTransaction,
   ) {
-    const step = await TransactionStep.findOne({
-      where: { externalId: chainTransaction.userOperationHash },
-    });
-    if (!step) {
-      throw new NotFoundError(
-        `transsaction step with transaction hash ${chainTransaction.userOperationHash} is not found`,
-      );
-    }
-
     const status =
       chainTransaction.status === 'CONFIRMED' ? 'SUCCESS' : 'FAILED';
-    await step.update({
+    await this.transactionService.finalizeTransactionStep(
+      chainTransaction.userOperationHash,
       status,
-    }, { transaction: dbTransaction });
-
-    const transaction = await Transaction.findByPk(step.transactionId);
-    if (!transaction) {
-      throw new NotFoundError(
-        `transsaction with transaction id ${step.transactionId} is not found`,
-      );
-    }
-    const transactionStatus =
-      chainTransaction.status === 'CONFIRMED' ? 'SENT' : 'FAILED';
-    transaction.update({
-      status: transactionStatus,
       transactionHash,
-    }, { transaction: dbTransaction });
+      { dbTransaction },
+    );
   }
 }

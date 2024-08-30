@@ -5,9 +5,9 @@ import { setupUserOpExecute, UserOperation } from '../utils/user-operation';
 import ENVIRONMENT from '../config/environment';
 import axios from 'axios';
 import { ChainTransaction } from '../models/ChainTransaction';
-import { Transaction } from '../models/Transaction';
 import SimpleToken from '../contracts/SimpleToken.json';
 import { Transaction as DBTransaction } from 'sequelize';
+import { TransactionStep } from '../models/TransactionStep';
 
 export default class ChainTransactionService {
   async deployAccountAbstraction(
@@ -68,32 +68,30 @@ export default class ChainTransactionService {
   }
 
   async transferToken(
-    transaction: Transaction,
+    transactionStep: TransactionStep,
     accountPrivateKey: string,
     opts: { dbTransaction: DBTransaction },
   ) {
     const signer = new ethers.Wallet(accountPrivateKey);
     let callData = '0x';
-    if (transaction.sentToken && transaction.sentTokenObject) {
+    if (transactionStep.tokenAddress) {
       const token = new ethers.Contract(
-        transaction.sentTokenObject.address,
+        transactionStep.tokenAddress,
         SimpleToken.abi,
         provider,
       );
       callData = token.interface.encodeFunctionData('transfer', [
-        transaction.receiverAccount.accountAbstractionAddress,
-        transaction.receivedAmount,
+        transactionStep.receiverAddress,
+        transactionStep.tokenAmount,
       ]);
     }
 
     const userOp = await setupUserOpExecute({
       signer,
-      sender: transaction.senderAccount.accountAbstractionAddress,
+      sender: transactionStep.senderAddress!,
       initCode: '0x',
-      target:
-        transaction.sentTokenObject?.address ??
-        transaction.receiverAccount.accountAbstractionAddress,
-      value: transaction.sentToken ? '0' : transaction.sentAmount,
+      target: transactionStep.tokenAddress ?? transactionStep.receiverAddress!,
+      value: transactionStep.tokenAddress ? '0' : transactionStep.tokenAmount,
       callData,
     });
 

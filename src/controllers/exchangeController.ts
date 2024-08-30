@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
-import ExchangeService from "../services/exchangeService";
-import { createRequestProcessor } from "../utils/request-processor";
-import BadRequestError from "../errors/bad-request";
-import { notNull } from "../utils/assert";
+import { Request, Response } from 'express';
+import ExchangeService from '../services/exchangeService';
+import { createRequestProcessor } from '../utils/request-processor';
+import BadRequestError from '../errors/bad-request';
+import { notNull } from '../utils/assert';
 
 export default class ExchangeController {
   private exchangeService: ExchangeService;

@@ -29,6 +29,7 @@ export default class TransactionController {
           receivedAmount,
           sentTokenAddress,
           receivedTokenAddress,
+          transferType,
         } = snakeToCamel(request.body);
         notNull(
           new BadRequestError('sender_address is required'),
@@ -39,6 +40,7 @@ export default class TransactionController {
           receiverAddress,
         );
         notNull(new BadRequestError('shard_device is required'), shardDevice);
+        notNull(new BadRequestError('transfer_type is required'), transferType);
 
         const transaction = await this.transactionService.create({
           senderAddress,
@@ -48,6 +50,7 @@ export default class TransactionController {
           receivedAmount,
           sentTokenAddress,
           receivedTokenAddress,
+          transferType,
           opts: { dbTransaction: dbTransaction! },
         });
         return { transactionId: transaction.id };

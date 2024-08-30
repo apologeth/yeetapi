@@ -3,6 +3,8 @@ import { getContracts, provider } from './contracts';
 import { ethers, Signer } from 'ethers';
 import ENVIRONMENT from '../config/environment';
 
+export const langitAdmin = new ethers.Wallet(ENVIRONMENT.ADMIN_PRIVATE_KEY!);
+
 export type UserOperation = {
   sender: string;
   nonce: number;
@@ -87,7 +89,6 @@ async function generatePaymasterAndData(userOp: any): Promise<string> {
     erc20Token,
     exchangeRate,
   );
-  const langitAdmin = new ethers.Wallet(ENVIRONMENT.ADMIN_PRIVATE_KEY!);
   const signature = await langitAdmin.signMessage(ethers.utils.arrayify(hash));
   const paymasterAndData = ethers.utils.defaultAbiCoder.encode(
     ['uint48', 'uint48', 'address', 'uint256'],
