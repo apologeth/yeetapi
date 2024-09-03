@@ -7,9 +7,6 @@ module.exports = {
       ALTER TYPE "enum_transaction_steps_type"
       ADD VALUE 'EXCHANGE_TO_FIAT'
     `);
-    await queryInterface.changeColumn('transaction_steps', 'type', {
-      allowNull: false,
-    });
     await queryInterface.addColumn('transaction_steps', 'priority', {
       type: Sequelize.INTEGER,
       defaultValue: 0,
