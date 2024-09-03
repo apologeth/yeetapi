@@ -6,7 +6,7 @@ import { cryptoExchange } from '../utils/crypto-exchange';
 
 export default class ExchangeService {
   async getTokenAmount(fiatAmount: number) {
-    const orders = await cryptoExchange.fetchOrderBook('USDT/IDRT');
+    const orders = await cryptoExchange.fetchOrderBook('USDT/IDR');
     const bids = orders.bids;
     let bidsIndex = 0;
     let price = 0;
@@ -44,7 +44,7 @@ export default class ExchangeService {
 
     const result = await cryptoExchange.createOrder(
       'USDT/IDR',
-      'limit',
+      'market',
       'sell',
       tokenAmount,
       price,

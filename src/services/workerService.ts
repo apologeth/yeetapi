@@ -22,13 +22,17 @@ export default class WorkerService {
       limit: 10,
     });
     const promises = exchanges.map(async (exchange) => {
-      const order = await cryptoExchange.fetchOrder(exchange.orderId);
-      if (order.status === 'open') {
+      const order = (
+        await cryptoExchange.privateGetOpenV1OrdersDetail({
+          orderId: exchange.orderId,
+        })
+      ).data;
+      if (order.status === '0') {
         return;
       }
       const dbTransaction = await sequelize.transaction();
       try {
-        const status = order.status === 'closed' ? 'SOLD' : 'FAILED';
+        const status = order.status === '2' ? 'SOLD' : 'FAILED';
         await exchange.update(
           {
             status,

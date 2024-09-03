@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import lodash from 'lodash';
 
 export function camelToSnake(obj: any): any {
@@ -25,4 +26,16 @@ export function camelToSnake(obj: any): any {
 
 export function snakeToCamel(obj: any) {
   return lodash.mapKeys(obj, (v, k) => lodash.camelCase(k));
+}
+
+export function convertToSmallestUnit(amount: number, decimals: number) {
+  const tokenDecimals = BigNumber(decimals);
+  const ten = new BigNumber('10');
+  return BigNumber(amount!).multipliedBy(ten.pow(tokenDecimals));
+}
+
+export function convertToBiggestUnit(amount: string, decimals: number) {
+  const tokenDecimals = BigNumber(decimals);
+  const ten = new BigNumber('10');
+  return BigNumber(amount!).dividedBy(ten.pow(tokenDecimals)).toNumber();
 }

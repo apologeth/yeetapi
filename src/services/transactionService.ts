@@ -15,6 +15,10 @@ import { Transaction as DBTransaction } from 'sequelize';
 import ExchangeService from './exchangeService';
 import { langitAdmin } from '../utils/user-operation';
 import { v4 as uuid } from 'uuid';
+import {
+  convertToBiggestUnit,
+  convertToSmallestUnit,
+} from '../utils/conversion';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
@@ -172,7 +176,7 @@ export default class TransactionService {
     notNull(new BadRequestError('Unknown sent token'), sentToken);
     notNull(new BadRequestError('Unknown recived token'), receivedToken);
 
-    const amountInSmallestUnit = this.convertToSmallestUnit(
+    const amountInSmallestUnit = convertToSmallestUnit(
       sentAmount,
       sentToken!.decimals,
     );
@@ -212,7 +216,7 @@ export default class TransactionService {
   }) {
     const { sender, receiver, sentAmount, opts } = params;
 
-    const amountInSmallestUnit = this.convertToSmallestUnit(sentAmount, 18);
+    const amountInSmallestUnit = convertToSmallestUnit(sentAmount, 18);
     const nativeTokenBalance = await provider.getBalance(
       sender.accountAbstractionAddress,
     );
@@ -264,7 +268,7 @@ export default class TransactionService {
       sentAmount >= expectedSentAmount,
     );
 
-    const sentAmountInSmallestUnit = this.convertToSmallestUnit(
+    const sentAmountInSmallestUnit = convertToSmallestUnit(
       expectedSentAmount,
       sentToken!.decimals,
     );
@@ -281,7 +285,7 @@ export default class TransactionService {
       sentAmountInSmallestUnit.lte(senderAccountBalance.toString()),
     );
 
-    const receivedAmountInSmallestUnit = this.convertToSmallestUnit(
+    const receivedAmountInSmallestUnit = convertToSmallestUnit(
       receivedAmount,
       2,
     ); //IDRT decimals precision is 2
@@ -297,18 +301,6 @@ export default class TransactionService {
       },
       { transaction: opts?.dbTransaction },
     );
-  }
-
-  private convertToSmallestUnit(amount: number, decimals: number) {
-    const tokenDecimals = BigNumber(decimals);
-    const ten = new BigNumber('10');
-    return BigNumber(amount!).multipliedBy(ten.pow(tokenDecimals));
-  }
-
-  private convertToBiggestUnit(amount: string, decimals: number) {
-    const tokenDecimals = BigNumber(decimals);
-    const ten = new BigNumber('10');
-    return BigNumber(amount!).dividedBy(ten.pow(tokenDecimals)).toNumber();
   }
 
   private async createTransactionSteps(
@@ -426,11 +418,11 @@ export default class TransactionService {
       case 'EXCHANGE_TO_FIAT':
         {
           //TODO: calculate from real token decimals
-          const tokenAmount = this.convertToBiggestUnit(
+          const tokenAmount = convertToBiggestUnit(
             transactionStep.tokenAmount!,
             18,
           );
-          const fiatAmount = this.convertToBiggestUnit(
+          const fiatAmount = convertToBiggestUnit(
             transactionStep.fiatAmount!,
             2,
           );
@@ -494,13 +486,34 @@ export default class TransactionService {
 
     if (steps!.length === 0) {
       const transactionStatus = status === 'SUCCESS' ? 'SENT' : 'FAILED';
-      await Transaction.update(
+      const transaction = await Transaction.findByPk(step!.transactionId);
+      notNull(
+        new BadRequestError(
+          `transaction with id: ${step!.transactionId} is not found`,
+        ),
+        transaction,
+      );
+      await transaction!.update(
         { status: transactionStatus },
         {
-          where: { id: step!.transactionId },
           transaction: opts?.dbTransaction,
         },
       );
+      if (
+        transactionStatus === 'SENT' &&
+        transaction!.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT
+      ) {
+        const receiver = await Account.findByPk(transaction!.receiver!);
+        const fiatBalance = BigNumber(receiver!.fiatBalance).plus(
+          transaction!.receivedAmount!,
+        );
+        await receiver!.update(
+          {
+            fiatBalance: fiatBalance.toString(),
+          },
+          { transaction: opts?.dbTransaction },
+        );
+      }
     } else {
       await this.executeTransactionStep(steps[0], opts?.dbTransaction!);
     }

@@ -22,6 +22,7 @@ import {
 import Unauthorized from '../errors/unauthorized';
 import BadRequestError from '../errors/bad-request';
 import { Transaction as DBTransaction } from 'sequelize';
+import { convertToBiggestUnit } from '../utils/conversion';
 
 export default class AccountService {
   private chainTransactionService;
@@ -209,6 +210,7 @@ export default class AccountService {
           address: account.address,
           accountAbstractionAddress: account.accountAbstractionAddress,
           status: account.status,
+          fiatBalance: convertToBiggestUnit(account.fiatBalance, 2),
           createdAt: account.createdAt,
           updatedAt: account.updatedAt,
         }
