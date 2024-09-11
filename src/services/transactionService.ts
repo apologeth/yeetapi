@@ -144,6 +144,15 @@ export default class TransactionService {
           sentTokenAddress: params.sentTokenAddress!,
           receivedAmount: params.receivedAmount!,
         });
+      case TRANSFER_TYPE.NATIVE_TO_FIAT:
+        notNull(
+          new BadRequestError('received_amount is required'),
+          params.receivedAmount,
+        );
+        return this.createNativeToFiatTransfer({
+          ...params,
+          receivedAmount: params.receivedAmount!,
+        });
       default:
         throw new BadRequestError('unknown transfer_type');
     }
@@ -303,6 +312,38 @@ export default class TransactionService {
     );
   }
 
+  private async createNativeToFiatTransfer(params: {
+    sender: Account;
+    receiver: Account;
+    sentAmount: number;
+    receivedAmount: number;
+    transferType: TRANSFER_TYPE;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    const { sender, receiver, sentAmount, receivedAmount, opts } = params;
+
+    const amountInSmallestUnit = convertToSmallestUnit(sentAmount, 18);
+    const nativeTokenBalance = await provider.getBalance(
+      sender.accountAbstractionAddress,
+    );
+    mustBeTrue(
+      new BadRequestError('Insufficient balance'),
+      amountInSmallestUnit.lte(nativeTokenBalance.toString()),
+    );
+
+    return await Transaction.create(
+      {
+        sender: sender.id,
+        receiver: receiver.id,
+        sentAmount: amountInSmallestUnit.toString(),
+        receivedAmount: convertToSmallestUnit(receivedAmount, 2).toString(),
+        status: 'INIT',
+        transferType: 'NATIVE_TO_FIAT',
+      },
+      { transaction: opts?.dbTransaction },
+    );
+  }
+
   private async createTransactionSteps(
     transaction: Transaction,
     dbTransaction: DBTransaction,
@@ -310,7 +351,10 @@ export default class TransactionService {
     const steps: TransactionStep[] = [];
 
     steps.push(await this.createCryptoTransferStep(transaction, dbTransaction));
-    if (transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT) {
+    if (
+      transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
+      transaction.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT
+    ) {
       steps.push(
         await this.createExchangeToFiatStep(transaction, dbTransaction),
       );
@@ -334,7 +378,10 @@ export default class TransactionService {
 
     let senderAddress;
     let receiverAddress;
-    if (transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT) {
+    if (
+      transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
+      transaction.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT
+    ) {
       senderAddress = senderAccount!.accountAbstractionAddress;
       receiverAddress = langitAdmin.address;
     } else {
@@ -371,10 +418,6 @@ export default class TransactionService {
       sentAmount: tokenAmount,
       receivedAmount: fiatAmount,
     } = transaction;
-    notNull(
-      new BadRequestError('sentTokenDetails is required'),
-      sentTokenDetails,
-    );
     notNull(new BadRequestError('tokenAmount is required'), tokenAmount);
     notNull(new BadRequestError('recievedAmount is required'), fiatAmount);
 
@@ -385,7 +428,7 @@ export default class TransactionService {
         type: 'EXCHANGE_TO_FIAT',
         status: 'INIT',
         priority: 1,
-        tokenAddress: sentTokenDetails!.address,
+        tokenAddress: sentTokenDetails?.address,
         tokenAmount,
         fiatAmount,
       },

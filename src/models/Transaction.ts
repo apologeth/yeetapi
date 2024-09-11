@@ -9,6 +9,7 @@ export enum TRANSFER_TYPE {
   FIAT_TO_CRYPTO = 'FIAT_TO_CRYPTO',
   CRYPTO_TO_FIAT = 'CRYPTO_TO_FIAT',
   NATIVE_TO_NATIVE = 'NATIVE_TO_NATIVE',
+  NATIVE_TO_FIAT = 'NATIVE_TO_FIAT',
 }
 
 class Transaction extends Model {
