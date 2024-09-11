@@ -2,6 +2,7 @@ import LangitAccount from '../contracts/LangitAccount.json';
 import { getContracts, provider } from './contracts';
 import { ethers, Signer } from 'ethers';
 import ENVIRONMENT from '../config/environment';
+import { estimateUserOperationGas } from './bundler';
 
 export const langitAdmin = new ethers.Wallet(ENVIRONMENT.ADMIN_PRIVATE_KEY!);
 
@@ -10,11 +11,11 @@ export type UserOperation = {
   nonce: number;
   initCode: string;
   callData: string;
-  callGasLimit: number;
-  verificationGasLimit: number;
-  preVerificationGas: number;
-  maxFeePerGas: number;
-  maxPriorityFeePerGas: number;
+  callGasLimit: string;
+  verificationGasLimit: string;
+  preVerificationGas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
   paymasterAndData: string;
   signature: string;
 };
@@ -57,15 +58,22 @@ async function setupUserOp(params: {
     nonce: Number(nonce),
     initCode,
     callData: callDataForEntryPoint,
-    callGasLimit: 500000,
-    verificationGasLimit: 500000,
-    preVerificationGas: 500000,
-    maxFeePerGas: 232673939,
-    maxPriorityFeePerGas: 0,
+    callGasLimit: '0x00',
+    verificationGasLimit: '0x00',
+    preVerificationGas: '0x00',
+    maxFeePerGas: '0x00',
+    maxPriorityFeePerGas: '0x00',
     paymasterAndData: '0x',
     signature: '0x',
   };
 
+  userOp.paymasterAndData = await generatePaymasterAndData(userOp);
+  const estimatedGas = await estimateUserOperationGas(userOp);
+  userOp.callGasLimit = estimatedGas.callGasLimit;
+  userOp.verificationGasLimit = estimatedGas.verificationGasLimit;
+  userOp.preVerificationGas = estimatedGas.preVerificationGas;
+  userOp.maxFeePerGas = estimatedGas.maxFeePerGas;
+  userOp.maxPriorityFeePerGas = estimatedGas.maxPriorityFeePerGas;
   userOp.paymasterAndData = await generatePaymasterAndData(userOp);
 
   const opHash = await entrypoint.getUserOpHash(Object.values(userOp));

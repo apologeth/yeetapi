@@ -1,13 +1,12 @@
 import { ethers } from 'ethers';
 import { getContracts, provider } from '../utils/contracts';
 import LangitAccount from '../contracts/LangitAccount.json';
-import { setupUserOpExecute, UserOperation } from '../utils/user-operation';
-import ENVIRONMENT from '../config/environment';
-import axios from 'axios';
+import { setupUserOpExecute } from '../utils/user-operation';
 import { ChainTransaction } from '../models/ChainTransaction';
 import SimpleToken from '../contracts/SimpleToken.json';
 import { Transaction as DBTransaction } from 'sequelize';
 import { TransactionStep } from '../models/TransactionStep';
+import { sendUserOperation } from '../utils/bundler';
 
 export default class ChainTransactionService {
   async deployAccountAbstraction(
@@ -51,7 +50,7 @@ export default class ChainTransactionService {
       callData,
     });
 
-    const userOperationHash = await this.send(userOp);
+    const userOperationHash = await sendUserOperation(userOp);
     await ChainTransaction.create(
       {
         userOperationHash,
@@ -95,7 +94,7 @@ export default class ChainTransactionService {
       callData,
     });
 
-    const userOperationHash = await this.send(userOp);
+    const userOperationHash = await sendUserOperation(userOp);
     await ChainTransaction.create(
       {
         userOperationHash,
@@ -106,21 +105,5 @@ export default class ChainTransactionService {
     );
 
     return userOperationHash;
-  }
-
-  private async send(userOp: UserOperation): Promise<string> {
-    const { entrypoint } = await getContracts();
-
-    const responseFromBundler = await axios.post(ENVIRONMENT.BUNDLER_RPC_URL!, {
-      jsonrpc: '2.0',
-      method: 'eth_sendUserOperation',
-      params: [userOp, entrypoint.address],
-      id: 1,
-    });
-
-    if (responseFromBundler.data.error) {
-      throw Error(responseFromBundler.data.error.message);
-    }
-    return responseFromBundler.data.result;
   }
 }

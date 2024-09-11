@@ -1,4 +1,3 @@
-import { getContracts, provider } from '../utils/contracts';
 import { ChainTransaction } from '../models/ChainTransaction';
 import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
@@ -7,6 +6,7 @@ import { Transaction as DBTransaction } from 'sequelize';
 import TransactionService from './transactionService';
 import { Exchange } from '../models/Exchange';
 import { cryptoExchange } from '../utils/crypto-exchange';
+import { getUserOperationReceipt } from '../utils/bundler';
 
 export default class WorkerService {
   private transactionService: TransactionService;
@@ -64,29 +64,13 @@ export default class WorkerService {
     });
 
     const promises = chainTransactions.map(async (chainTransaction) => {
-      const { entrypoint } = await getContracts();
-      const filter = entrypoint.filters.UserOperationEvent(
+      const receipt = await getUserOperationReceipt(
         chainTransaction.userOperationHash,
       );
-      const logs = await provider.getLogs({
-        ...filter,
-        fromBlock: 0,
-        toBlock: 'latest',
-      });
-
-      if (!logs || logs.length === 0) {
-        return;
-      }
-      const receipt = await provider.getTransactionReceipt(
-        logs[0].transactionHash,
-      );
-      if (!receipt) {
-        return;
-      }
 
       const dbTransaction = await sequelize.transaction();
       try {
-        const status = receipt.status === 1 ? 'CONFIRMED' : 'FAILED';
+        const status = receipt.success ? 'CONFIRMED' : 'FAILED';
         await chainTransaction.update(
           {
             status,
@@ -95,8 +79,8 @@ export default class WorkerService {
         );
         await this.nextStep(
           chainTransaction,
-          logs[0].transactionHash,
           dbTransaction,
+          receipt.transactionHash,
         );
         await dbTransaction.commit();
       } catch (e) {
@@ -111,8 +95,8 @@ export default class WorkerService {
 
   private async nextStep(
     chainTransaction: ChainTransaction,
-    transactionHash: string,
     dbTransaction: DBTransaction,
+    transactionHash?: string,
   ) {
     try {
       switch (chainTransaction.actionType) {
@@ -122,8 +106,8 @@ export default class WorkerService {
         case 'TRANSFER_TOKEN':
           await this.updateTransactionStepStatus(
             chainTransaction,
-            transactionHash,
             dbTransaction,
+            transactionHash,
           );
           break;
         default:
@@ -159,8 +143,8 @@ export default class WorkerService {
 
   private async updateTransactionStepStatus(
     chainTransaction: ChainTransaction,
-    transactionHash: string,
     dbTransaction: DBTransaction,
+    transactionHash?: string,
   ) {
     const status =
       chainTransaction.status === 'CONFIRMED' ? 'SUCCESS' : 'FAILED';
