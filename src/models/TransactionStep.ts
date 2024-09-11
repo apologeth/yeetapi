@@ -37,7 +37,13 @@ TransactionStep.init(
       type: DataTypes.ENUM('CHAIN_TRANSACTION', 'EXCHANGE_TO_FIAT'),
     },
     status: {
-      type: DataTypes.ENUM('INIT', 'PROCESSING', 'SUCCESS', 'FAILED'),
+      type: DataTypes.ENUM(
+        'INIT',
+        'PROCESSING',
+        'SUCCESS',
+        'FAILED',
+        'REVERTED',
+      ),
     },
     priority: {
       type: DataTypes.NUMBER,

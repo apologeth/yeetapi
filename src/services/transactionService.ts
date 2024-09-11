@@ -19,6 +19,7 @@ import {
   convertToBiggestUnit,
   convertToSmallestUnit,
 } from '../utils/conversion';
+import ENVIRONMENT from '../config/environment';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
@@ -314,13 +315,12 @@ export default class TransactionService {
 
   private async createNativeToFiatTransfer(params: {
     sender: Account;
-    receiver: Account;
     sentAmount: number;
     receivedAmount: number;
     transferType: TRANSFER_TYPE;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const { sender, receiver, sentAmount, receivedAmount, opts } = params;
+    const { sender, sentAmount, receivedAmount, opts } = params;
 
     const amountInSmallestUnit = convertToSmallestUnit(sentAmount, 18);
     const nativeTokenBalance = await provider.getBalance(
@@ -334,7 +334,6 @@ export default class TransactionService {
     return await Transaction.create(
       {
         sender: sender.id,
-        receiver: receiver.id,
         sentAmount: amountInSmallestUnit.toString(),
         receivedAmount: convertToSmallestUnit(receivedAmount, 2).toString(),
         status: 'INIT',
@@ -491,7 +490,7 @@ export default class TransactionService {
 
   async finalizeTransactionStep(
     externalId: string,
-    status: 'SUCCESS' | 'FAILED',
+    status: string,
     transactionHash?: string,
     opts?: { dbTransaction: DBTransaction },
   ) {
@@ -504,6 +503,7 @@ export default class TransactionService {
       ),
       step,
     );
+    status = step?.status !== 'REVERTING' ? status : 'REVERTED';
     await step!.update(
       {
         status,
@@ -558,7 +558,44 @@ export default class TransactionService {
         );
       }
     } else {
-      await this.executeTransactionStep(steps[0], opts?.dbTransaction!);
+      try {
+        await this.executeTransactionStep(steps[0], opts?.dbTransaction!);
+      } catch (err: any) {
+        // Currently only crypto / native transaction step that need to be reverted.
+        await this.revertTransactionStep(step!, opts?.dbTransaction!);
+        await steps[0].update(
+          {
+            status: 'FAILED',
+          },
+          { transaction: opts?.dbTransaction },
+        );
+        await Transaction.update(
+          {
+            status: 'FAILED',
+          },
+          {
+            where: { id: step?.transactionId! },
+            transaction: opts?.dbTransaction,
+          },
+        );
+      }
     }
+  }
+
+  async revertTransactionStep(
+    step: TransactionStep,
+    dbTransaction: DBTransaction,
+  ) {
+    await langitAdmin.connect(provider).sendTransaction({
+      to: step.senderAddress!,
+      value: step.tokenAmount,
+    });
+
+    await step.update(
+      {
+        status: 'REVERTED',
+      },
+      { transaction: dbTransaction },
+    );
   }
 }
