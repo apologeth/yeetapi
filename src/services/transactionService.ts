@@ -587,9 +587,22 @@ export default class TransactionService {
     step: TransactionStep,
     dbTransaction: DBTransaction,
   ) {
+    let callData: string | null = null;
+    if (step.tokenAddress) {
+      const token = new ethers.Contract(
+        step.tokenAddress,
+        SimpleToken.abi,
+        provider,
+      );
+      callData = token.interface.encodeFunctionData('transfer', [
+        step.senderAddress,
+        step.tokenAmount,
+      ]);
+    }
     await langitAdmin.connect(provider).sendTransaction({
-      to: step.senderAddress!,
-      value: step.tokenAmount,
+      to: step.tokenAddress ?? step.senderAddress!,
+      value: step.tokenAddress ? '0' : step.tokenAmount,
+      data: callData ?? ''
     });
 
     await step.update(
