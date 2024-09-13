@@ -561,6 +561,7 @@ export default class TransactionService {
       try {
         await this.executeTransactionStep(steps[0], opts?.dbTransaction!);
       } catch (err: any) {
+        console.error(`transaction with id: ${step?.transactionId} failed when executing steps: ${steps[0].id}, error: ${err.message}`);
         // Currently only crypto / native transaction step that need to be reverted.
         await this.revertTransactionStep(step!, opts?.dbTransaction!);
         await steps[0].update(
