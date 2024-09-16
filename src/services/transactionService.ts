@@ -19,7 +19,6 @@ import {
   convertToBiggestUnit,
   convertToSmallestUnit,
 } from '../utils/conversion';
-import ENVIRONMENT from '../config/environment';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
@@ -459,10 +458,16 @@ export default class TransactionService {
         break;
       case 'EXCHANGE_TO_FIAT':
         {
-          //TODO: calculate from real token decimals
+          let decimals = 18;
+          if (transactionStep.tokenAddress) {
+            const token = await Token.findOne({
+              where: { address: transactionStep.tokenAddress },
+            });
+            decimals = token?.decimals ?? decimals;
+          }
           const tokenAmount = convertToBiggestUnit(
             transactionStep.tokenAmount!,
-            18,
+            decimals,
           );
           const fiatAmount = convertToBiggestUnit(
             transactionStep.fiatAmount!,
@@ -561,7 +566,9 @@ export default class TransactionService {
       try {
         await this.executeTransactionStep(steps[0], opts?.dbTransaction!);
       } catch (err: any) {
-        console.error(`transaction with id: ${step?.transactionId} failed when executing steps: ${steps[0].id}, error: ${err.message}`);
+        console.error(
+          `transaction with id: ${step?.transactionId} failed when executing steps: ${steps[0].id}, error: ${err.message}`,
+        );
         // Currently only crypto / native transaction step that need to be reverted.
         await this.revertTransactionStep(step!, opts?.dbTransaction!);
         await steps[0].update(
@@ -602,7 +609,7 @@ export default class TransactionService {
     await langitAdmin.connect(provider).sendTransaction({
       to: step.tokenAddress ?? step.senderAddress!,
       value: step.tokenAddress ? '0' : step.tokenAmount,
-      data: callData ?? ''
+      data: callData ?? '',
     });
 
     await step.update(

@@ -23,6 +23,7 @@ import Unauthorized from '../errors/unauthorized';
 import BadRequestError from '../errors/bad-request';
 import { Transaction as DBTransaction } from 'sequelize';
 import { convertToBiggestUnit } from '../utils/conversion';
+import { getContracts } from '../utils/contracts';
 
 export default class AccountService {
   private chainTransactionService;
@@ -41,6 +42,12 @@ export default class AccountService {
     mustBeNull(
       new ConflictError(`email: ${email} is already registered`),
       existingAccount,
+    );
+    const { langitAccountFactory } = await getContracts();
+    const registeredEmail = await langitAccountFactory.accountOfEmail(email);
+    mustBeTrue(
+      new ConflictError(`email: ${email} is already registered`),
+      registeredEmail === '0x0000000000000000000000000000000000000000',
     );
 
     // Generate ETH private key
