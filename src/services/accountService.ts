@@ -35,9 +35,10 @@ export default class AccountService {
   async createAccount(params: {
     email: string;
     password?: string;
+    fiatWalletId?: string;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const { email, password, opts } = params;
+    const { email, password, fiatWalletId, opts } = params;
     const existingAccount = await Account.findOne({ where: { email } });
     mustBeNull(
       new ConflictError(`email: ${email} is already registered`),
@@ -76,6 +77,7 @@ export default class AccountService {
         accountAbstractionAddress,
         userOperationHash,
         status: 'INIT',
+        fiatWalletId,
       },
       {
         transaction: opts.dbTransaction,
@@ -95,10 +97,12 @@ export default class AccountService {
     };
   }
 
-  async createAccountWithGoogleToken(
-    googleCode: string,
-    opts: { dbTransaction: DBTransaction },
-  ) {
+  async createAccountWithGoogleToken(params: {
+    googleCode: string;
+    fiatWalletId?: string;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    const { googleCode, fiatWalletId, opts } = params;
     const resFromGoogle = await axios.post(
       'https://oauth2.googleapis.com/token',
       {
@@ -122,7 +126,7 @@ export default class AccountService {
     const userDetails = userResponse.data;
     const email = userDetails.email;
 
-    return await this.createAccount({ email, opts });
+    return await this.createAccount({ email, fiatWalletId, opts });
   }
 
   async recoverAccount(email: string, shardEmail: string) {

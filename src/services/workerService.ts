@@ -39,12 +39,6 @@ export default class WorkerService {
           },
           { transaction: dbTransaction },
         );
-        await this.transactionService.finalizeTransactionStep(
-          exchange.orderId,
-          status === 'SOLD' ? 'SUCCESS' : 'FAILED',
-          undefined,
-          { dbTransaction },
-        );
         await dbTransaction.commit();
       } catch (e) {
         console.log(

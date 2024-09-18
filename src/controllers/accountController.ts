@@ -22,13 +22,14 @@ export default class AccountController {
         request: Request,
         dbTransaction?: DBTransaction,
       ) => {
-        const { email, password } = snakeToCamel(request.body);
+        const { email, password, fiatWalletId } = snakeToCamel(request.body);
 
         notNull(new BadRequestError('email is required'), email);
         notNull(new BadRequestError('password is required'), password);
         return await this.accountService.createAccount({
           email,
           password,
+          fiatWalletId,
           opts: { dbTransaction: dbTransaction! },
         });
       },
@@ -47,13 +48,14 @@ export default class AccountController {
         request: Request,
         dbTransaction?: DBTransaction,
       ) => {
-        const { googleCode } = snakeToCamel(request.body);
+        const { googleCode, fiatWalletId } = snakeToCamel(request.body);
         notNull(new BadRequestError('google_code is required'), googleCode);
 
-        return await this.accountService.createAccountWithGoogleToken(
+        return await this.accountService.createAccountWithGoogleToken({
           googleCode,
-          { dbTransaction: dbTransaction! },
-        );
+          fiatWalletId,
+          opts: { dbTransaction: dbTransaction! },
+        });
       },
       opts: {
         useDBTransaction: true,

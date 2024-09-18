@@ -19,14 +19,17 @@ import {
   convertToBiggestUnit,
   convertToSmallestUnit,
 } from '../utils/conversion';
+import WalletService from './walletService';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
   private exchangeService: ExchangeService;
+  private walletService: WalletService;
 
   constructor() {
     this.chainTransactionService = new ChainTransactionService();
     this.exchangeService = new ExchangeService();
+    this.walletService = new WalletService();
   }
 
   async fetch(transactionId: string) {
@@ -139,6 +142,10 @@ export default class TransactionService {
           new BadRequestError('received_amount is required'),
           params.receivedAmount,
         );
+        notNull(
+          new BadRequestError('receiver must have fiat wallet id'),
+          params.receiver.fiatWalletId,
+        );
         return this.createCryptoToFiatTransfer({
           ...params,
           sentTokenAddress: params.sentTokenAddress!,
@@ -148,6 +155,10 @@ export default class TransactionService {
         notNull(
           new BadRequestError('received_amount is required'),
           params.receivedAmount,
+        );
+        notNull(
+          new BadRequestError('receiver must have fiat wallet id'),
+          params.receiver.fiatWalletId,
         );
         return this.createNativeToFiatTransfer({
           ...params,
@@ -458,25 +469,15 @@ export default class TransactionService {
         break;
       case 'EXCHANGE_TO_FIAT':
         {
-          let decimals = 18;
-          if (transactionStep.tokenAddress) {
-            const token = await Token.findOne({
-              where: { address: transactionStep.tokenAddress },
-            });
-            decimals = token?.decimals ?? decimals;
-          }
-          const tokenAmount = convertToBiggestUnit(
-            transactionStep.tokenAmount!,
-            decimals,
-          );
-          const fiatAmount = convertToBiggestUnit(
-            transactionStep.fiatAmount!,
-            2,
-          );
-          externalId = await this.exchangeService.exchangeTokenToFiat(
-            tokenAmount,
-            fiatAmount,
-            { dbTransaction },
+          const receiverAccount = await Account.findOne({
+            where: {
+              accountAbstractionAddress: transactionStep.receiverAddress,
+            },
+          });
+          const amount = convertToBiggestUnit(transactionStep.fiatAmount!, 2);
+          externalId = await this.walletService.transfer(
+            receiverAccount?.fiatWalletId!,
+            amount,
           );
         }
         break;
@@ -491,6 +492,10 @@ export default class TransactionService {
       },
       { transaction: dbTransaction },
     );
+
+    if (transactionStep.type === 'EXCHANGE_TO_FIAT') {
+      await this.finalizeTransactionStep(externalId, 'SUCCESS');
+    }
   }
 
   async finalizeTransactionStep(
@@ -549,7 +554,8 @@ export default class TransactionService {
       );
       if (
         transactionStatus === 'SENT' &&
-        transaction!.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT
+        (transaction!.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
+          transaction!.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT)
       ) {
         const receiver = await Account.findByPk(transaction!.receiver!);
         const fiatBalance = BigNumber(receiver!.fiatBalance).plus(
@@ -561,6 +567,7 @@ export default class TransactionService {
           },
           { transaction: opts?.dbTransaction },
         );
+        await this.postTransaction(transaction!, opts?.dbTransaction!);
       }
     } else {
       try {
@@ -618,5 +625,32 @@ export default class TransactionService {
       },
       { transaction: dbTransaction },
     );
+  }
+
+  async postTransaction(
+    transaction: Transaction,
+    dbTransaction: DBTransaction,
+  ) {
+    if (
+      !(
+        transaction.transferType !== TRANSFER_TYPE.CRYPTO_TO_FIAT &&
+        transaction.transferType !== TRANSFER_TYPE.NATIVE_TO_FIAT
+      ) ||
+      transaction.status !== 'SENT'
+    ) {
+      return;
+    }
+    let decimals = 18;
+    if (transaction.sentToken) {
+      const token = await Token.findOne({
+        where: { address: transaction.sentToken },
+      });
+      decimals = token?.decimals ?? decimals;
+    }
+    const tokenAmount = convertToBiggestUnit(transaction.sentToken!, decimals);
+    const fiatAmount = convertToBiggestUnit(transaction.receivedToken!, 2);
+    await this.exchangeService.exchangeTokenToFiat(tokenAmount, fiatAmount, {
+      dbTransaction,
+    });
   }
 }

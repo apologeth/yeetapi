@@ -9,6 +9,7 @@ class Account extends Model {
   public address!: string;
   public accountAbstractionAddress!: string;
   public encryptedShard!: string;
+  public fiatWalletId!: string | undefined;
   public fiatBalance!: string;
   public status!: string;
   public createdAt!: string;
@@ -49,6 +50,9 @@ Account.init(
     },
     status: {
       type: DataTypes.ENUM('INIT', 'CREATED', 'FAILED'),
+    },
+    fiatWalletId: {
+      type: DataTypes.STRING,
     },
     fiatBalance: {
       type: DataTypes.STRING,
