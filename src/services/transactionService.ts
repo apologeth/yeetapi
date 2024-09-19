@@ -571,7 +571,7 @@ export default class TransactionService {
           },
           { transaction: opts?.dbTransaction },
         );
-        await this.postTransaction(transaction!, opts?.dbTransaction!);
+        this.postTransaction(transaction!);
       }
     } else {
       try {
@@ -632,29 +632,25 @@ export default class TransactionService {
   }
 
   async postTransaction(
-    transaction: Transaction,
-    dbTransaction: DBTransaction,
+    transaction: Transaction
   ) {
-    if (
-      !(
-        transaction.transferType !== TRANSFER_TYPE.CRYPTO_TO_FIAT &&
-        transaction.transferType !== TRANSFER_TYPE.NATIVE_TO_FIAT
-      ) ||
-      transaction.status !== 'SENT'
-    ) {
-      return;
+    try {
+      if (
+        !transaction.transferType.includes('FIAT') ||
+        transaction.status !== 'SENT'
+      ) {
+        return;
+      }
+      let decimals = 18;
+      if (transaction.sentToken) {
+        const token = await Token.findByPk(transaction.sentToken);
+        decimals = token?.decimals ?? decimals;
+      }
+      const tokenAmount = convertToBiggestUnit(transaction.sentAmount!, decimals);
+      const fiatAmount = convertToBiggestUnit(transaction.receivedAmount!, 2);
+      await this.exchangeService.exchangeTokenToFiat(tokenAmount, fiatAmount);
+    } catch(err: any) {
+      console.error(`Failed to execute post transaction, error = ${err.message}`);
     }
-    let decimals = 18;
-    if (transaction.sentToken) {
-      const token = await Token.findOne({
-        where: { address: transaction.sentToken },
-      });
-      decimals = token?.decimals ?? decimals;
-    }
-    const tokenAmount = convertToBiggestUnit(transaction.sentToken!, decimals);
-    const fiatAmount = convertToBiggestUnit(transaction.receivedToken!, 2);
-    await this.exchangeService.exchangeTokenToFiat(tokenAmount, fiatAmount, {
-      dbTransaction,
-    });
   }
 }
