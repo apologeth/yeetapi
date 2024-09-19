@@ -5,7 +5,7 @@ import InternalServerError from '../errors/internal-server-error';
 import { mustBeTrue } from '../utils/assert';
 
 export default class WalletService {
-  async transfer(receiver: string, amount: number): Promise<number> {
+  async transfer(receiver: string, amount: number): Promise<string> {
     const pullingAccountBalance = await this.pullingAccountBalance();
     mustBeTrue(
       new InternalServerError('insufficient pulling account balance'),
@@ -15,14 +15,15 @@ export default class WalletService {
     const requestBody = {
       "sender": ENVIRONMENT.PULLING_ACCOUNT_ID,
       "receiver": receiver,
-      amount,
+      "amount": amount,
     };
+
     const result = await this.fetch(
       `${ENVIRONMENT.EXTERNAL_WALLET_BASE_URL}transferva`,
       requestBody,
       'POST',
     );
-    return result.TransactionId;
+    return String(result.TransactionId);
   }
 
   private async pullingAccountBalance() {
@@ -36,9 +37,9 @@ export default class WalletService {
     return result.MerchantBalance;
   }
 
-  private async fetch(url: string, requestBody: any, method: Method) {
-    const signature = this.pullingAccountSignature(requestBody, method);
-
+  private async fetch(url: string, data: any, method: Method) {
+    const signature = this.pullingAccountSignature(data, method);
+    
     const response = await axios.request({
       url,
       method,
@@ -47,7 +48,7 @@ export default class WalletService {
         signature,
         va: ENVIRONMENT.PULLING_ACCOUNT_ID,
       },
-      params: requestBody,
+      data,
     });
 
     if (response.data.Status !== 200) {
@@ -59,10 +60,10 @@ export default class WalletService {
     return response.data.Data;
   }
 
-  private pullingAccountSignature(requestBody: any, method: Method) {
+  private pullingAccountSignature(data: any, method: Method) {
     const bodyEncrypt = crypto
       .createHash('SHA256')
-      .update(JSON.stringify(requestBody))
+      .update(JSON.stringify(data))
       .digest('hex');
 
     const stringToSign = `${method}:${ENVIRONMENT.PULLING_ACCOUNT_ID}:${bodyEncrypt}:${ENVIRONMENT.EXTERNAL_WALLET_API_KEY}`;

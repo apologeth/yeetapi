@@ -325,12 +325,13 @@ export default class TransactionService {
 
   private async createNativeToFiatTransfer(params: {
     sender: Account;
+    receiver: Account;
     sentAmount: number;
     receivedAmount: number;
     transferType: TRANSFER_TYPE;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const { sender, sentAmount, receivedAmount, opts } = params;
+    const { sender, receiver, sentAmount, receivedAmount, opts } = params;
 
     const amountInSmallestUnit = convertToSmallestUnit(sentAmount, 18);
     const nativeTokenBalance = await provider.getBalance(
@@ -344,6 +345,7 @@ export default class TransactionService {
     return await Transaction.create(
       {
         sender: sender.id,
+        receiver: receiver.id,
         sentAmount: amountInSmallestUnit.toString(),
         receivedAmount: convertToSmallestUnit(receivedAmount, 2).toString(),
         status: 'INIT',
@@ -440,6 +442,7 @@ export default class TransactionService {
         tokenAddress: sentTokenDetails?.address,
         tokenAmount,
         fiatAmount,
+        receiverAddress: transaction.receiverAccount?.accountAbstractionAddress,
       },
       { transaction: dbTransaction },
     );
@@ -494,7 +497,7 @@ export default class TransactionService {
     );
 
     if (transactionStep.type === 'EXCHANGE_TO_FIAT') {
-      await this.finalizeTransactionStep(externalId, 'SUCCESS');
+      await this.finalizeTransactionStep(externalId, 'SUCCESS', undefined, { dbTransaction });
     }
   }
 
@@ -506,6 +509,7 @@ export default class TransactionService {
   ) {
     const step = await TransactionStep.findOne({
       where: { externalId },
+      transaction: opts?.dbTransaction,
     });
     notNull(
       new NotFoundError(
