@@ -17,7 +17,6 @@ class Transaction extends Model {
   public sender!: string;
   public receiver!: string | undefined | null;
   public senderAccount!: Account | undefined | null;
-  public receiverAccount!: Account | undefined | null;
   public sentAmount!: string;
   public receivedAmount!: string | undefined | null;
   public sentToken!: string | undefined | null;
@@ -92,11 +91,6 @@ Transaction.init(
 Transaction.belongsTo(Account, {
   foreignKey: 'sender',
   as: 'senderAccount',
-});
-
-Transaction.belongsTo(Account, {
-  foreignKey: 'receiver',
-  as: 'receiverAccount',
 });
 
 Transaction.belongsTo(Token, {

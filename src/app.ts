@@ -6,6 +6,7 @@ import WorkerService from './services/workerService';
 import { tokenRoute } from './routes/token';
 import { transactionRoute } from './routes/transaction';
 import { exchangeRoute } from './routes/exchange';
+import { fiatWalletRoute } from './routes/fiatWallet';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +23,7 @@ clientRoute(router);
 tokenRoute(router);
 transactionRoute(router);
 exchangeRoute(router);
+fiatWalletRoute(router);
 app.use('/api', router);
 
 const workerService = new WorkerService();

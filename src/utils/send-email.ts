@@ -28,3 +28,8 @@ export async function sendEmail(email: string, subject: string, text: string) {
     throw new Error('Failed to send secret key via email');
   }
 }
+
+export function isEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
