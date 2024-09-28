@@ -566,8 +566,7 @@ export default class TransactionService {
       );
     }
 
-    if (steps!.length === 0) {
-      const transactionStatus = status === 'SUCCESS' ? 'SENT' : 'FAILED';
+    if (steps!.length === 0 || status === 'FAILED') {
       const transaction = await Transaction.findByPk(step!.transactionId);
       notNull(
         new BadRequestError(
@@ -575,14 +574,15 @@ export default class TransactionService {
         ),
         transaction,
       );
+      transaction!.status = status === 'SUCCESS' ? 'SENT' : 'FAILED';
       await transaction!.update(
-        { status: transactionStatus },
+        { status: transaction!.status },
         {
           transaction: opts?.dbTransaction,
         },
       );
       if (
-        transactionStatus === 'SENT' &&
+        transaction!.status === 'SENT' &&
         (transaction!.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
           transaction!.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT)
       ) {

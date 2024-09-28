@@ -64,6 +64,13 @@ export default class WorkerService {
 
       const dbTransaction = await sequelize.transaction();
       try {
+        if (
+          receipt.success == null &&
+          Math.floor(Date.now() / 1000) >
+            Number(chainTransaction.createdAt) + 1800
+        ) {
+          return;
+        }
         const status = receipt.success ? 'CONFIRMED' : 'FAILED';
         await chainTransaction.update(
           {

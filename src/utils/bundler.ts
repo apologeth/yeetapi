@@ -61,10 +61,10 @@ export async function getUserOperationReceipt(userOpHash: string): Promise<{
   }
 
   const result = responseFromBundler.data.result;
-  const transactionHash = result.logs?.[0]?.transactionHash;
+  const transactionHash = result?.logs?.[0]?.transactionHash;
   return {
-    userOperationHash: result.userOpHash,
-    success: result.success,
+    userOperationHash: result?.userOpHash,
+    success: result?.success,
     transactionHash: transactionHash,
   };
 }

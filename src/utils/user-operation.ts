@@ -1,5 +1,5 @@
 import LangitAccount from '../contracts/LangitAccount.json';
-import { getContracts, provider } from './contracts';
+import { getContracts } from './contracts';
 import { ethers, Signer } from 'ethers';
 import ENVIRONMENT from '../config/environment';
 import { estimateUserOperationGas } from './bundler';
@@ -84,9 +84,8 @@ async function setupUserOp(params: {
 
 async function generatePaymasterAndData(userOp: any): Promise<string> {
   const { langitPaymaster } = await getContracts();
-  const latestBlock = await provider.getBlock('latest');
-  const validAfter = latestBlock.timestamp;
-  const validUntil = validAfter + 86400;
+  const validAfter = Math.floor(Date.now() / 1000);
+  const validUntil = validAfter + 1800;
   const erc20Token = ENVIRONMENT.GAS_TOKEN_ADDRESS;
   const exchangeRate = 0; // For now it's free
 
