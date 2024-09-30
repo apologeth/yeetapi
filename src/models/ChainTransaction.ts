@@ -7,8 +7,8 @@ class ChainTransaction extends Model {
   public userOperationHash!: string;
   public actionType!: string;
   public status!: string;
-  public createdAt!: string;
-  public updatedAt!: string;
+  public createdAt!: Date;
+  public updatedAt!: Date;
 }
 
 ChainTransaction.init(
