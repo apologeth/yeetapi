@@ -582,7 +582,7 @@ export default class TransactionService {
         },
       );
       if (
-        transaction!.status === 'SENT' &&
+        transaction!.status === 'SUCCESS' &&
         (transaction!.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
           transaction!.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT)
       ) {
