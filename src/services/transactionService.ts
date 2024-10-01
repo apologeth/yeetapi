@@ -567,7 +567,7 @@ export default class TransactionService {
     }
 
     if (steps!.length === 0 || status === 'FAILED') {
-      const transaction = await Transaction.findByPk(step!.transactionId);
+      const transaction = await Transaction.findByPk(step!.transactionId, { transaction: opts?.dbTransaction});
       notNull(
         new BadRequestError(
           `transaction with id: ${step!.transactionId} is not found`,
