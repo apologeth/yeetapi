@@ -20,6 +20,7 @@ import {
 } from '../utils/conversion';
 import WalletService from './walletService';
 import { isEmail } from '../utils/send-email';
+import InternalServerError from '../errors/internal-server-error';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
@@ -51,6 +52,7 @@ export default class TransactionService {
       senderAddress,
       shardDevice,
       receiverAddress: _receiverAddress,
+      transferType,
       opts,
     } = params;
 
@@ -61,7 +63,10 @@ export default class TransactionService {
       throw new NotFoundError('Unknown sender');
     }
 
-    const receiverAddress = await this.getReceiverAddress(_receiverAddress);
+    const receiverAddress = await this.getReceiverAddress(
+      _receiverAddress,
+      transferType,
+    );
 
     const privateKey = await recoverPrivateKey(
       sender.encryptedShard!,
@@ -106,29 +111,40 @@ export default class TransactionService {
     return transaction;
   }
 
-  private async getReceiverAddress(receiverAddress: string) {
-    let receiver: Account | null;
-    console.log(receiverAddress);
-    if (isEmail(receiverAddress)) {
-      receiver = await Account.findOne({
-        where: { email: receiverAddress },
-      });
-
-      notNull(
-        new BadRequestError('receiver must have fiat wallet id'),
-        receiver?.fiatWalletId,
-      );
-      return receiver!.fiatWalletId!;
-    } else if (ethers.utils.isAddress(receiverAddress)) {
-      receiver = await Account.findOne({
-        where: { accountAbstractionAddress: receiverAddress },
-      });
-
-      return receiver?.accountAbstractionAddress ?? receiverAddress;
-    } else {
+  private async getReceiverAddress(
+    receiverAddress: string,
+    transferType: TRANSFER_TYPE,
+  ) {
+    if (!isEmail(receiverAddress) && ethers.utils.isAddress(receiverAddress)) {
       throw new BadRequestError(
-        'receiver address must be either email or AA address',
+        'receiver address must be either email or EOA or account abstraction',
       );
+    }
+
+    const receiver = await Account.findOne({
+      where: isEmail(receiverAddress)
+        ? { email: receiverAddress }
+        : { accountAbstractionAddress: receiverAddress },
+    });
+
+    switch (transferType) {
+      case TRANSFER_TYPE.CRYPTO_TO_CRYPTO:
+        return receiver?.accountAbstractionAddress ?? receiverAddress;
+      case TRANSFER_TYPE.NATIVE_TO_NATIVE:
+        return receiver?.accountAbstractionAddress ?? receiverAddress;
+      case TRANSFER_TYPE.CRYPTO_TO_FIAT:
+      case TRANSFER_TYPE.NATIVE_TO_FIAT:
+        notNull(
+          new BadRequestError(
+            'this email address must be associated with fiat wallet id',
+          ),
+          receiver?.fiatWalletId,
+        );
+        return receiver!.fiatWalletId!;
+      default:
+        throw new InternalServerError(
+          'must be not here: unknown transfer type',
+        );
     }
   }
 
@@ -567,7 +583,9 @@ export default class TransactionService {
     }
 
     if (steps!.length === 0 || status === 'FAILED') {
-      const transaction = await Transaction.findByPk(step!.transactionId, { transaction: opts?.dbTransaction});
+      const transaction = await Transaction.findByPk(step!.transactionId, {
+        transaction: opts?.dbTransaction,
+      });
       notNull(
         new BadRequestError(
           `transaction with id: ${step!.transactionId} is not found`,

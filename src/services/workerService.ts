@@ -65,7 +65,7 @@ export default class WorkerService {
       if (
         receipt.success == null &&
         Math.floor(Date.now() / 1000) <=
-        Math.floor(chainTransaction.createdAt.getTime() / 1000) + 1800
+          Math.floor(chainTransaction.createdAt.getTime() / 1000) + 1800
       ) {
         return;
       }
