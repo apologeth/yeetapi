@@ -7,6 +7,32 @@ import { Account } from '../models/Account';
 import BadRequestError from '../errors/bad-request';
 
 export default class WalletService {
+  async createPayment(params: {
+    referenceId: string,
+    email: string,
+    amount: number,
+  }) {
+    const { referenceId, email, amount } = params;
+    const requestBody = {
+      referenceId,
+      name: 'test',
+      phone: '0845237238123',
+      email,
+      amount,
+      account: ENVIRONMENT.PULLING_ACCOUNT_ID,
+      paymentMethod: 'va',
+      paymentChannel: 'bca',
+      notifyUrl: "https://mywebsite.com",
+    }
+    
+    const result = await this.fetch(
+      `${ENVIRONMENT.EXTERNAL_WALLET_BASE_URL}payment/direct`,
+      requestBody,
+      'POST',
+    );
+    return String(result.TransactionId);
+  }
+
   async transfer(receiver: string, amount: number): Promise<string> {
     const pullingAccountBalance = await this.pullingAccountBalance();
     mustBeTrue(

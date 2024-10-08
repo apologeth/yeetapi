@@ -1,7 +1,7 @@
 import BadRequestError from '../errors/bad-request';
 import { Token } from '../models/Token';
 import { ethers } from 'ethers';
-import { Transaction, TRANSFER_TYPE } from '../models/Transaction';
+import { Transaction, TRANSACTION_TYPE, TRANSFER_TYPE } from '../models/Transaction';
 import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
 import { mustBeTrue, notNull } from '../utils/assert';
@@ -34,10 +34,53 @@ export default class TransactionService {
   }
 
   async fetch(transactionId: string) {
-    return (await Transaction.findByPk(transactionId))?.dataValues;
+    const transaction = await Transaction.findByPk(transactionId);
+    return transaction?.dataValues;
   }
 
   async create(params: {
+    senderAddress?: string;
+    shardDevice?: string;
+    receiverAddress?: string;
+    sentAmount?: number;
+    receivedAmount?: number;
+    sentTokenAddress?: string;
+    receivedTokenAddress?: string;
+    type: TRANSACTION_TYPE,
+    transferType: TRANSFER_TYPE;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    switch(params.type) {
+      case 'TRANSFER':
+        notNull(new BadRequestError('sender_address is required'), params.senderAddress);
+        notNull(new BadRequestError('shard_device is required'), params.shardDevice);
+        notNull(new BadRequestError('receiver_address is required'), params.receiverAddress);
+        notNull(new BadRequestError('sent_amount is required'), params.sentAmount);
+
+        return await this.transfer({
+          ...params,
+          senderAddress: params.senderAddress!,
+          shardDevice: params.shardDevice!,
+          receiverAddress: params.receiverAddress!,
+          sentAmount: params.sentAmount!,
+        });
+      case 'BUY_TOKEN':
+        notNull(new BadRequestError('receiver_address is required'), params.receiverAddress);
+        notNull(new BadRequestError('received_token_address is required'), params.receivedTokenAddress);
+        notNull(new BadRequestError('received_amount is required'), params.receivedAmount);
+
+        return this.buyToken({
+          ...params,
+          receiverAddress: params.receiverAddress!,
+          receivedTokenAddress: params.receivedTokenAddress!,
+          receivedAmount: params.receivedAmount!,
+        })
+      default:
+        throw new BadRequestError('unknown transaction type');
+    }
+  }
+
+  private async transfer(params: {
     senderAddress: string;
     shardDevice: string;
     receiverAddress: string;
@@ -107,6 +150,75 @@ export default class TransactionService {
     );
 
     await this.executeTransactionStep(steps[0], opts.dbTransaction, privateKey);
+
+    return transaction;
+  }
+
+  private async buyToken(params: {
+    receiverAddress: string;
+    receivedTokenAddress: string;
+    receivedAmount: number;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    const {
+      receiverAddress,
+      receivedTokenAddress,
+      receivedAmount,
+      opts,
+    } = params;
+
+    if (!isEmail(receiverAddress)) {
+      throw new BadRequestError('receiver_address must be email address');
+    }
+    const receiver = await Account.findOne({
+      where: { email: receiverAddress },
+    });
+    if (!receiver) {
+      throw new NotFoundError('Unknown receiver');
+    }
+
+    const token = await Token.findOne({
+      where: { address: receivedTokenAddress },
+    });
+    if (!token) {
+      throw new NotFoundError('Unknown token');
+    }
+
+    const amountInSmallestUnit = convertToSmallestUnit(receivedAmount, token!.decimals);
+
+    const transaction = await Transaction.create(
+      {
+        receiver: receiver.id,
+        receivedToken: token?.id,
+        receivedAmount: amountInSmallestUnit.toString(),
+        status: 'INIT',
+        type: 'BUY_TOKEN',
+      },
+      { transaction: opts?.dbTransaction },
+    );
+
+    const tokenPriceInIDR = (await this.exchangeService.getTokenAmount(1)).price;
+
+    const externalPaymentId = await this.walletService.createPayment({
+      referenceId: transaction.id,
+      email: receiver.email,
+      amount: receivedAmount * tokenPriceInIDR,
+    });
+
+    await TransactionStep.create(
+      {
+        id: uuid(),
+        transactionId: transaction.id,
+        externalId: externalPaymentId,
+        type: 'BUY_TOKEN',
+        status: 'PROCESSING',
+        priority: 0,
+        receiverAddress,
+        tokenAddress: token?.address,
+        tokenAmount: amountInSmallestUnit.toString(),
+      },
+      { transaction: opts?.dbTransaction },
+    );
 
     return transaction;
   }

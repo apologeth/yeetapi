@@ -12,6 +12,11 @@ export enum TRANSFER_TYPE {
   NATIVE_TO_FIAT = 'NATIVE_TO_FIAT',
 }
 
+export enum TRANSACTION_TYPE {
+  BUY_TOKEN = 'BUY_TOKEN',
+  TRANSFER = 'TRANSFER',
+}
+
 class Transaction extends Model {
   public id!: string;
   public sender!: string;
@@ -24,6 +29,7 @@ class Transaction extends Model {
   public sentTokenDetails!: Token | undefined | null;
   public receivedTokenDetails!: Token | undefined | null;
   public transactionHash!: string | undefined | null;
+  public type!: TRANSACTION_TYPE;
   public transferType!: TRANSFER_TYPE;
   public status!: string;
   public createdAt!: string;
@@ -66,10 +72,13 @@ Transaction.init(
       unique: true,
       allowNull: true,
     },
+    type : {
+      type: DataTypes.ENUM(...Object.keys(TRANSACTION_TYPE)),
+      defaultValue: 'TRANSFER',
+      allowNull: false,
+    },
     transferType: {
       type: DataTypes.ENUM(...Object.keys(TRANSFER_TYPE)),
-      defaultValue: 'CRYPTO_TO_CRYPTO',
-      allowNull: false,
     },
     createdAt: {
       allowNull: false,
