@@ -5,13 +5,12 @@ import InternalServerError from '../errors/internal-server-error';
 import { mustBeTrue, notNull } from '../utils/assert';
 import { Account } from '../models/Account';
 import BadRequestError from '../errors/bad-request';
-
 export default class WalletService {
   async createPayment(params: {
-    referenceId: string,
-    email: string,
-    amount: number,
-  }) {
+    referenceId: string;
+    email: string;
+    amount: number;
+  }): Promise<{ TransactionId: string; PaymentNo: string }> {
     const { referenceId, email, amount } = params;
     const requestBody = {
       referenceId,
@@ -22,15 +21,15 @@ export default class WalletService {
       account: ENVIRONMENT.PULLING_ACCOUNT_ID,
       paymentMethod: 'va',
       paymentChannel: 'bca',
-      notifyUrl: "https://mywebsite.com",
-    }
-    
+      notifyUrl: ENVIRONMENT.CALLBACK_URL,
+    };
+
     const result = await this.fetch(
       `${ENVIRONMENT.EXTERNAL_WALLET_BASE_URL}payment/direct`,
       requestBody,
       'POST',
     );
-    return String(result.TransactionId);
+    return result;
   }
 
   async transfer(receiver: string, amount: number): Promise<string> {

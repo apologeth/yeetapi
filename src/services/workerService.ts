@@ -7,6 +7,7 @@ import TransactionService from './transactionService';
 import { Exchange } from '../models/Exchange';
 import { cryptoExchange } from '../utils/crypto-exchange';
 import { getUserOperationReceipt } from '../utils/bundler';
+import { provider } from '../utils/contracts';
 
 export default class WorkerService {
   private transactionService: TransactionService;
@@ -58,9 +59,20 @@ export default class WorkerService {
     });
 
     const promises = chainTransactions.map(async (chainTransaction) => {
-      const receipt = await getUserOperationReceipt(
+      let receipt = await getUserOperationReceipt(
         chainTransaction.userOperationHash,
       );
+
+      if (!receipt.success) {
+        const ethReceipt = (await provider.getTransactionReceipt(
+          chainTransaction.userOperationHash,
+        )) as any;
+        receipt = {
+          userOperationHash: ethReceipt.transactionHash,
+          success: ethReceipt.status === 1,
+          transactionHash: ethReceipt.transactionHash,
+        };
+      }
 
       if (
         receipt.success == null &&

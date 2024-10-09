@@ -29,6 +29,7 @@ class Transaction extends Model {
   public sentTokenDetails!: Token | undefined | null;
   public receivedTokenDetails!: Token | undefined | null;
   public transactionHash!: string | undefined | null;
+  public paymentCode!: string | undefined | null;
   public type!: TRANSACTION_TYPE;
   public transferType!: TRANSFER_TYPE;
   public status!: string;
@@ -72,7 +73,12 @@ Transaction.init(
       unique: true,
       allowNull: true,
     },
-    type : {
+    paymentCode: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: true,
+    },
+    type: {
       type: DataTypes.ENUM(...Object.keys(TRANSACTION_TYPE)),
       defaultValue: 'TRANSFER',
       allowNull: false,

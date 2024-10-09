@@ -32,10 +32,7 @@ export default class TransactionController {
           transferType,
           type,
         } = snakeToCamel(request.body);
-        notNull(
-          new BadRequestError('type is required'),
-          type,
-        );
+        notNull(new BadRequestError('type is required'), type);
 
         const transaction = await this.transactionService.create({
           senderAddress,
@@ -75,6 +72,27 @@ export default class TransactionController {
       opts: {
         useDBTransaction: false,
         context: 'Fetch Account',
+      },
+    });
+  }
+
+  async notifyPayment(request: Request, response: Response) {
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (request: Request) => {
+        const { transactionId, statusCode, referenceId } = snakeToCamel(
+          request.body,
+        );
+        await this.transactionService.notifyPayment(
+          transactionId,
+          statusCode,
+          referenceId,
+        );
+      },
+      opts: {
+        useDBTransaction: false,
+        context: 'Fetch Token Price To Fiat',
       },
     });
   }

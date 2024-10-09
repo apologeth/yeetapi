@@ -34,7 +34,12 @@ TransactionStep.init(
       type: DataTypes.STRING,
     },
     type: {
-      type: DataTypes.ENUM('CHAIN_TRANSACTION', 'EXCHANGE_TO_FIAT', 'BUY_TOKEN'),
+      type: DataTypes.ENUM(
+        'CHAIN_TRANSACTION',
+        'EXCHANGE_TO_FIAT',
+        'BUY_TOKEN',
+        'ADMIN_CHAIN_TRANSACTION',
+      ),
     },
     status: {
       type: DataTypes.ENUM(
