@@ -125,7 +125,7 @@ export default class TransactionService {
 
     const dbTransaction = await sequelize.transaction();
     try {
-      const status = statusCode === 1 ? 'SUCCESS' : 'FAILED';
+      const status = statusCode == 1 ? 'SUCCESS' : 'FAILED';
       await this.finalizeTransactionStep(transactionId, status, undefined, {
         dbTransaction,
       });
