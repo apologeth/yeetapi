@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import TransactionController from '../controllers/transactionController';
+import multer from 'multer';
+
+const upload = multer({ dest: 'uploads/' });
 
 const transactionController = new TransactionController();
 export function transactionRoute(router: Router) {
@@ -13,6 +16,7 @@ export function transactionRoute(router: Router) {
   );
   router.post(
     '/transactions/notify-payment',
+    upload.none(),
     transactionController.notifyPayment.bind(transactionController),
   );
 }

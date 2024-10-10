@@ -81,11 +81,9 @@ export default class TransactionController {
       request,
       response,
       functionToExecute: async (request: Request) => {
-        const { transactionId, statusCode, referenceId } = snakeToCamel(
-          request.body,
-        );
+        const { trxId, statusCode, referenceId } = snakeToCamel(request.body);
         await this.transactionService.notifyPayment(
-          transactionId,
+          trxId,
           statusCode,
           referenceId,
         );
