@@ -30,7 +30,7 @@ module.exports = {
     `);
   },
 
-  async down(queryInterface) {
+  async down(queryInterface, Sequelize) {
     await queryInterface.removeColumn('transactions', 'type');
     await queryInterface.removeColumn('transactions', 'payment_ccode');
     await queryInterface.changeColumn('transactions', 'transfer_type', {

@@ -242,6 +242,16 @@ export default class TransactionService {
       receivedAmount,
       token!.decimals,
     );
+    const tokenInstance = new ethers.Contract(
+      receivedTokenAddress,
+      SimpleToken.abi,
+      provider,
+    );
+    const adminBalance = await tokenInstance.balanceOf(langitAdmin.address);
+    mustBeTrue(
+      new BadRequestError('Insufficient balance'),
+      amountInSmallestUnit.lte(adminBalance.toString()),
+    );
 
     const transaction = await Transaction.create(
       {
