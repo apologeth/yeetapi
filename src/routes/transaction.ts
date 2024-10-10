@@ -11,4 +11,8 @@ export function transactionRoute(router: Router) {
     '/transactions/:transaction_id',
     transactionController.fetch.bind(transactionController),
   );
+  router.post(
+    '/transactions/notify-payment',
+    transactionController.notifyPayment.bind(transactionController),
+  );
 }

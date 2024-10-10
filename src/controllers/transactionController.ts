@@ -30,17 +30,9 @@ export default class TransactionController {
           sentTokenAddress,
           receivedTokenAddress,
           transferType,
+          type,
         } = snakeToCamel(request.body);
-        notNull(
-          new BadRequestError('sender_address is required'),
-          senderAddress,
-        );
-        notNull(
-          new BadRequestError('receiver_address is required'),
-          receiverAddress,
-        );
-        notNull(new BadRequestError('shard_device is required'), shardDevice);
-        notNull(new BadRequestError('transfer_type is required'), transferType);
+        notNull(new BadRequestError('type is required'), type);
 
         const transaction = await this.transactionService.create({
           senderAddress,
@@ -51,6 +43,7 @@ export default class TransactionController {
           sentTokenAddress,
           receivedTokenAddress,
           transferType,
+          type,
           opts: { dbTransaction: dbTransaction! },
         });
         return { transactionId: transaction.id };
@@ -79,6 +72,27 @@ export default class TransactionController {
       opts: {
         useDBTransaction: false,
         context: 'Fetch Account',
+      },
+    });
+  }
+
+  async notifyPayment(request: Request, response: Response) {
+    return await createRequestProcessor({
+      request,
+      response,
+      functionToExecute: async (request: Request) => {
+        const { transactionId, statusCode, referenceId } = snakeToCamel(
+          request.body,
+        );
+        await this.transactionService.notifyPayment(
+          transactionId,
+          statusCode,
+          referenceId,
+        );
+      },
+      opts: {
+        useDBTransaction: false,
+        context: 'Fetch Token Price To Fiat',
       },
     });
   }

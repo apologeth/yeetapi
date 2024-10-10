@@ -1,7 +1,11 @@
 import BadRequestError from '../errors/bad-request';
 import { Token } from '../models/Token';
 import { ethers } from 'ethers';
-import { Transaction, TRANSFER_TYPE } from '../models/Transaction';
+import {
+  Transaction,
+  TRANSACTION_TYPE,
+  TRANSFER_TYPE,
+} from '../models/Transaction';
 import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
 import { mustBeTrue, notNull } from '../utils/assert';
@@ -21,6 +25,7 @@ import {
 import WalletService from './walletService';
 import { isEmail } from '../utils/send-email';
 import InternalServerError from '../errors/internal-server-error';
+import { sequelize } from '../config/database';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
@@ -34,10 +39,106 @@ export default class TransactionService {
   }
 
   async fetch(transactionId: string) {
-    return (await Transaction.findByPk(transactionId))?.dataValues;
+    const transaction = await Transaction.findByPk(transactionId);
+    return transaction?.dataValues;
   }
 
   async create(params: {
+    senderAddress?: string;
+    shardDevice?: string;
+    receiverAddress?: string;
+    sentAmount?: number;
+    receivedAmount?: number;
+    sentTokenAddress?: string;
+    receivedTokenAddress?: string;
+    type: TRANSACTION_TYPE;
+    transferType: TRANSFER_TYPE;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    switch (params.type) {
+      case 'TRANSFER':
+        notNull(
+          new BadRequestError('sender_address is required'),
+          params.senderAddress,
+        );
+        notNull(
+          new BadRequestError('shard_device is required'),
+          params.shardDevice,
+        );
+        notNull(
+          new BadRequestError('receiver_address is required'),
+          params.receiverAddress,
+        );
+        notNull(
+          new BadRequestError('sent_amount is required'),
+          params.sentAmount,
+        );
+
+        return await this.transfer({
+          ...params,
+          senderAddress: params.senderAddress!,
+          shardDevice: params.shardDevice!,
+          receiverAddress: params.receiverAddress!,
+          sentAmount: params.sentAmount!,
+        });
+      case 'BUY_TOKEN':
+        notNull(
+          new BadRequestError('receiver_address is required'),
+          params.receiverAddress,
+        );
+        notNull(
+          new BadRequestError('received_token_address is required'),
+          params.receivedTokenAddress,
+        );
+        notNull(
+          new BadRequestError('received_amount is required'),
+          params.receivedAmount,
+        );
+
+        return this.buyToken({
+          ...params,
+          receiverAddress: params.receiverAddress!,
+          receivedTokenAddress: params.receivedTokenAddress!,
+          receivedAmount: params.receivedAmount!,
+        });
+      default:
+        throw new BadRequestError('unknown transaction type');
+    }
+  }
+
+  async notifyPayment(
+    transactionId: string,
+    statusCode: number,
+    referenceId: string,
+  ) {
+    // Currently referenceId is internal transaction id,
+    // so we can check it by making sure this transaction exist or not.
+    const transaction = await Transaction.findByPk(referenceId);
+    notNull(new BadRequestError('Invalid request'), transaction);
+    mustBeTrue(
+      new BadRequestError('Invalid request'),
+      transaction!.status !== 'SUCCESS' && transaction!.status !== 'FAILED',
+    );
+    if (statusCode === 0) {
+      return;
+    }
+
+    const dbTransaction = await sequelize.transaction();
+    try {
+      const status = statusCode === 1 ? 'SUCCESS' : 'FAILED';
+      await this.finalizeTransactionStep(transactionId, status, undefined, {
+        dbTransaction,
+      });
+      await dbTransaction.commit();
+    } catch (e) {
+      console.log(
+        `Failed to update buy token with transactionId: ${referenceId}, error = ${e}`,
+      );
+      await dbTransaction.rollback();
+    }
+  }
+
+  private async transfer(params: {
     senderAddress: string;
     shardDevice: string;
     receiverAddress: string;
@@ -107,6 +208,107 @@ export default class TransactionService {
     );
 
     await this.executeTransactionStep(steps[0], opts.dbTransaction, privateKey);
+
+    return transaction;
+  }
+
+  private async buyToken(params: {
+    receiverAddress: string;
+    receivedTokenAddress: string;
+    receivedAmount: number;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    const { receiverAddress, receivedTokenAddress, receivedAmount, opts } =
+      params;
+
+    if (!isEmail(receiverAddress)) {
+      throw new BadRequestError('receiver_address must be email address');
+    }
+    const receiver = await Account.findOne({
+      where: { email: receiverAddress },
+    });
+    if (!receiver) {
+      throw new NotFoundError('Unknown receiver');
+    }
+
+    const token = await Token.findOne({
+      where: { address: receivedTokenAddress },
+    });
+    if (!token) {
+      throw new NotFoundError('Unknown token');
+    }
+
+    const amountInSmallestUnit = convertToSmallestUnit(
+      receivedAmount,
+      token!.decimals,
+    );
+    const tokenInstance = new ethers.Contract(
+      receivedTokenAddress,
+      SimpleToken.abi,
+      provider,
+    );
+    const adminBalance = await tokenInstance.balanceOf(langitAdmin.address);
+    mustBeTrue(
+      new BadRequestError('Insufficient balance'),
+      amountInSmallestUnit.lte(adminBalance.toString()),
+    );
+
+    const transaction = await Transaction.create(
+      {
+        receiver: receiver.id,
+        receivedToken: token?.id,
+        receivedAmount: amountInSmallestUnit.toString(),
+        status: 'INIT',
+        type: 'BUY_TOKEN',
+      },
+      { transaction: opts?.dbTransaction },
+    );
+
+    const tokenPriceInIDR = (await this.exchangeService.getTokenAmount(1))
+      .price;
+
+    const { TransactionId: externalPaymentId, PaymentNo: paymentCode } =
+      await this.walletService.createPayment({
+        referenceId: transaction.id,
+        email: receiver.email,
+        amount: receivedAmount * tokenPriceInIDR,
+      });
+
+    await TransactionStep.create(
+      {
+        id: uuid(),
+        transactionId: transaction.id,
+        externalId: externalPaymentId,
+        type: 'BUY_TOKEN',
+        status: 'PROCESSING',
+        priority: 0,
+        receiverAddress: receiver.accountAbstractionAddress,
+        tokenAddress: token?.address,
+        tokenAmount: amountInSmallestUnit.toString(),
+      },
+      { transaction: opts?.dbTransaction },
+    );
+
+    await TransactionStep.create(
+      {
+        id: uuid(),
+        transactionId: transaction.id,
+        type: 'ADMIN_CHAIN_TRANSACTION',
+        status: 'INIT',
+        priority: 1,
+        receiverAddress: receiver.accountAbstractionAddress,
+        tokenAddress: token?.address,
+        tokenAmount: amountInSmallestUnit.toString(),
+      },
+      { transaction: opts?.dbTransaction },
+    );
+
+    await transaction.update(
+      {
+        paymentCode,
+      },
+      { transaction: opts?.dbTransaction },
+    );
 
     return transaction;
   }
@@ -510,6 +712,14 @@ export default class TransactionService {
           externalId = await this.chainTransactionService.transferToken(
             transactionStep,
             privateKey!,
+            { dbTransaction },
+          );
+        }
+        break;
+      case 'ADMIN_CHAIN_TRANSACTION':
+        {
+          externalId = await this.chainTransactionService.adminTransferToken(
+            transactionStep,
             { dbTransaction },
           );
         }

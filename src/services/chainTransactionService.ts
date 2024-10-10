@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { getContracts, provider } from '../utils/contracts';
 import LangitAccount from '../contracts/LangitAccount.json';
-import { setupUserOpExecute } from '../utils/user-operation';
+import { langitAdmin, setupUserOpExecute } from '../utils/user-operation';
 import { ChainTransaction } from '../models/ChainTransaction';
 import SimpleToken from '../contracts/SimpleToken.json';
 import { Transaction as DBTransaction } from 'sequelize';
@@ -105,5 +105,39 @@ export default class ChainTransactionService {
     );
 
     return userOperationHash;
+  }
+
+  async adminTransferToken(
+    transactionStep: TransactionStep,
+    opts: { dbTransaction: DBTransaction },
+  ) {
+    const signer = langitAdmin;
+    let callData;
+    if (transactionStep.tokenAddress) {
+      const token = new ethers.Contract(
+        transactionStep.tokenAddress,
+        SimpleToken.abi,
+        provider,
+      );
+      callData = token.interface.encodeFunctionData('transfer', [
+        transactionStep.receiverAddress,
+        transactionStep.tokenAmount,
+      ]);
+    }
+    const response = await signer.connect(provider).sendTransaction({
+      value: transactionStep.tokenAddress ? '0' : transactionStep.tokenAmount,
+      to: transactionStep.tokenAddress ?? transactionStep.receiverAddress!,
+      data: callData,
+    });
+    await ChainTransaction.create(
+      {
+        userOperationHash: response.hash,
+        actionType: 'TRANSFER_TOKEN',
+        status: 'SUBMITTED',
+      },
+      { transaction: opts.dbTransaction },
+    );
+
+    return response.hash;
   }
 }
