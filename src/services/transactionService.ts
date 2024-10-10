@@ -117,7 +117,7 @@ export default class TransactionService {
     notNull(new BadRequestError('Invalid request'), transaction);
     mustBeTrue(
       new BadRequestError('Invalid request'),
-      transaction!.status !== 'SUCCESS' && transaction!.status !== 'FAILED',
+      transaction!.status !== 'SENT' && transaction!.status !== 'FAILED',
     );
     if (statusCode === 0) {
       return;
