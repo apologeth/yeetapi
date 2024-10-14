@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../schema.json
+tokens:
+  - addressOrDenom: "0xA2Aa714a0f62F3457dF2417ed6260F76105e8CD8"
+    chainName: arbitrumsepolia
+    collateralAddressOrDenom: "0x0eFD5C85F9BA5782d10eC07376c98bE509602831"
+    connections:
+      - token: ethereum|sepolia|0x35eDB2377297962D55b9Fc63E900F1F49DeF5121
+      - token: ethereum|x0|0x4a69f6F98EB7f7e66188F593F96ff905441Ae0D3
+    decimals: 6
+    name: Tether USD
+    standard: EvmHypCollateral
+    symbol: USDT
+  - addressOrDenom: "0x35eDB2377297962D55b9Fc63E900F1F49DeF5121"
+    chainName: sepolia
+    collateralAddressOrDenom: "0x4a1E361B1C8a2BE47222495044183c68AAF7D622"
+    connections:
+      - token: ethereum|arbitrumsepolia|0xA2Aa714a0f62F3457dF2417ed6260F76105e8CD8
+      - token: ethereum|x0|0x4a69f6F98EB7f7e66188F593F96ff905441Ae0D3
+    decimals: 6
+    name: Tether USD
+    standard: EvmHypCollateral
+    symbol: USDT
+  - addressOrDenom: "0x4a69f6F98EB7f7e66188F593F96ff905441Ae0D3"
+    chainName: x0
+    connections:
+      - token: ethereum|arbitrumsepolia|0xA2Aa714a0f62F3457dF2417ed6260F76105e8CD8
+      - token: ethereum|sepolia|0x35eDB2377297962D55b9Fc63E900F1F49DeF5121
+    decimals: 6
+    name: Tether USD
+    standard: EvmHypSynthetic
+    symbol: USDT
