@@ -39,8 +39,57 @@ export default class TransactionService {
   }
 
   async fetch(transactionId: string) {
-    const transaction = await Transaction.findByPk(transactionId);
-    return transaction?.dataValues;
+    const transaction = await Transaction.findByPk(transactionId, {
+      include: [
+        {
+          model: Account,
+          as: 'senderAccount',
+        },
+        {
+          model: Token,
+          as: 'sentTokenDetails',
+        },
+        {
+          model: Token,
+          as: 'receivedTokenDetails',
+        },
+      ],
+    });
+    let sentAmount: any = transaction?.sentAmount;
+    if (transaction?.sentTokenDetails) {
+      sentAmount = convertToBiggestUnit(sentAmount!, transaction?.sentTokenDetails.decimals);
+    } else if (transaction?.transferType?.includes('NATIVE')) {
+      sentAmount = convertToBiggestUnit(sentAmount!, 18);
+    } else if (transaction?.type === 'BUY_TOKEN') {
+      sentAmount = convertToBiggestUnit(sentAmount!, 2);
+    }
+
+    let receivedAmount: any = transaction?.receivedAmount;
+    if (transaction?.receivedTokenDetails) {
+      receivedAmount = convertToBiggestUnit(receivedAmount!, transaction?.receivedTokenDetails.decimals);
+    } else if (transaction?.transferType?.includes('TO_FIAT')) {
+      receivedAmount = convertToBiggestUnit(receivedAmount!, 2);
+    } else if (transaction?.transferType?.includes('TO_NATIVE')) {
+      receivedAmount = convertToBiggestUnit(receivedAmount!, 18);
+    }
+
+    const { id, sender, receiver, sentToken, receivedToken, status, transactionHash, paymentCode, type, transferType, createdAt, updatedAt } = transaction!;
+    return {
+      id,
+      sender,
+      receiver,
+      sentToken,
+      receivedToken,
+      status,
+      transactionHash,
+      paymentCode,
+      type,
+      transferType,
+      createdAt,
+      updatedAt,
+      sentAmount,
+      receivedAmount,
+    }
   }
 
   async create(params: {
@@ -87,10 +136,6 @@ export default class TransactionService {
           params.receiverAddress,
         );
         notNull(
-          new BadRequestError('received_token_address is required'),
-          params.receivedTokenAddress,
-        );
-        notNull(
           new BadRequestError('received_amount is required'),
           params.receivedAmount,
         );
@@ -98,7 +143,6 @@ export default class TransactionService {
         return this.buyToken({
           ...params,
           receiverAddress: params.receiverAddress!,
-          receivedTokenAddress: params.receivedTokenAddress!,
           receivedAmount: params.receivedAmount!,
         });
       default:
@@ -214,7 +258,7 @@ export default class TransactionService {
 
   private async buyToken(params: {
     receiverAddress: string;
-    receivedTokenAddress: string;
+    receivedTokenAddress?: string;
     receivedAmount: number;
     opts: { dbTransaction: DBTransaction };
   }) {
@@ -231,47 +275,51 @@ export default class TransactionService {
       throw new NotFoundError('Unknown receiver');
     }
 
-    const token = await Token.findOne({
-      where: { address: receivedTokenAddress },
-    });
-    if (!token) {
-      throw new NotFoundError('Unknown token');
+    let token;
+    if (receivedTokenAddress) {
+      token = await Token.findOne({
+        where: { address: receivedTokenAddress },
+      });
     }
 
     const amountInSmallestUnit = convertToSmallestUnit(
       receivedAmount,
-      token!.decimals,
+      token?.decimals ?? 18,
     );
-    const tokenInstance = new ethers.Contract(
-      receivedTokenAddress,
-      SimpleToken.abi,
-      provider,
-    );
-    const adminBalance = await tokenInstance.balanceOf(langitAdmin.address);
+    const adminBalance = receivedTokenAddress ? 
+      await (new ethers.Contract(
+        receivedTokenAddress,
+        SimpleToken.abi,
+        provider,
+      )).balanceOf(langitAdmin.address) : await provider.getBalance(langitAdmin.address);
+
     mustBeTrue(
-      new BadRequestError('Insufficient balance'),
+      new BadRequestError('Insufficient admin balance'),
       amountInSmallestUnit.lte(adminBalance.toString()),
     );
 
+    const tokenPriceInIDR = (await this.exchangeService.getTokenAmount(1))
+      .price;
+    const amountToSend = receivedAmount * tokenPriceInIDR;
     const transaction = await Transaction.create(
       {
         receiver: receiver.id,
         receivedToken: token?.id,
         receivedAmount: amountInSmallestUnit.toString(),
+        sentAmount: convertToSmallestUnit(amountToSend, 2).toString(),
         status: 'INIT',
         type: 'BUY_TOKEN',
       },
       { transaction: opts?.dbTransaction },
     );
 
-    const tokenPriceInIDR = (await this.exchangeService.getTokenAmount(1))
-      .price;
+    
 
     const { TransactionId: externalPaymentId, PaymentNo: paymentCode } =
       await this.walletService.createPayment({
         referenceId: transaction.id,
         email: receiver.email,
-        amount: receivedAmount * tokenPriceInIDR,
+        amount: amountToSend,
       });
 
     await TransactionStep.create(
@@ -317,7 +365,7 @@ export default class TransactionService {
     receiverAddress: string,
     transferType: TRANSFER_TYPE,
   ) {
-    if (!isEmail(receiverAddress) && ethers.utils.isAddress(receiverAddress)) {
+    if (!isEmail(receiverAddress) && !ethers.utils.isAddress(receiverAddress)) {
       throw new BadRequestError(
         'receiver address must be either email or EOA or account abstraction',
       );
