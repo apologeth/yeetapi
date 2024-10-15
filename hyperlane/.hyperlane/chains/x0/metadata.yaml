@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../schema.json
+blockExplorers:
+  - apiUrl: https://explorer-x0sepolia-id058i99l1.t.conduit.xyz/api
+    family: blockscout
+    name: x0scan
+    url: https://explorer-x0sepolia-id058i99l1.t.conduit.xyz
+chainId: 153153153
+displayName: X0
+domainId: 153153153
+isTestnet: true
+name: x0
+nativeToken:
+  decimals: 18
+  name: x0 Token
+  symbol: X0
+protocol: ethereum
+rpcUrls:
+  - http: https://rpc-x0sepolia-id058i99l1.t.conduit.xyz
