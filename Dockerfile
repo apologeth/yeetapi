@@ -16,6 +16,10 @@ COPY . .
 # Build the TypeScript code
 RUN npm run build
 
+RUN mkdir $HOME/.hyperlane
+RUN cp -r hyperlane/.hyperlane/* $HOME/.hyperlane/
+RUN npm install -g @hyperlane-xyz/cli
+
 # Expose the port the app runs on
 EXPOSE 3000
 
