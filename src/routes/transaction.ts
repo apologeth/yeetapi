@@ -19,4 +19,12 @@ export function transactionRoute(router: Router) {
     upload.none(),
     transactionController.notifyPayment.bind(transactionController),
   );
+  router.post(
+    '/transactions/bridgein',
+    transactionController.bridgeIn.bind(transactionController),
+  );
+  router.post(
+    '/transactions/bridgeout',
+    transactionController.bridgeOut.bind(transactionController),
+  );
 }

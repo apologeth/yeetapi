@@ -57,6 +57,6 @@ const worker = async () => {
 };
 
 // Run the worker every 1 minute
-setInterval(worker, 500);
+//setInterval(worker, 500);
 
 export default app;

@@ -1,66 +1,65 @@
 arbitrumsepolia:
   decimals: 6
   interchainSecurityModule:
-    address: "0xDCa08D55E1ad849300D4a544E842DCaB3D9BdAE3"
+    address: '0xDCa08D55E1ad849300D4a544E842DCaB3D9BdAE3'
     modules:
-      - address: "0x2ec986f1030c9222065dB5420e177A16EB178903"
-        owner: "0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C"
+      - address: '0x2ec986f1030c9222065dB5420e177A16EB178903'
+        owner: '0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C'
         paused: false
         type: pausableIsm
     threshold: 1
     type: staticAggregationIsm
-  mailbox: "0x598facE78a4302f11E3de0bee1894Da0b2Cb71F8"
+  mailbox: '0x598facE78a4302f11E3de0bee1894Da0b2Cb71F8'
   name: Tether USD
-  owner: "0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C"
+  owner: '0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C'
   remoteRouters:
-    "11155111": "0x35eDB2377297962D55b9Fc63E900F1F49DeF5121"
-    "153153153": "0x4a69f6F98EB7f7e66188F593F96ff905441Ae0D3"
+    '11155111': '0x35eDB2377297962D55b9Fc63E900F1F49DeF5121'
+    '153153153': '0x4a69f6F98EB7f7e66188F593F96ff905441Ae0D3'
   symbol: USDT
-  token: "0x0eFD5C85F9BA5782d10eC07376c98bE509602831"
-  totalSupply: "1100000000"
+  token: '0x0eFD5C85F9BA5782d10eC07376c98bE509602831'
+  totalSupply: '1100000000'
   type: collateral
 sepolia:
   decimals: 6
   interchainSecurityModule:
-    address: "0x689965a4Bd060ae2C4Ff93764D8B1F327Bb2b203"
+    address: '0x689965a4Bd060ae2C4Ff93764D8B1F327Bb2b203'
     modules:
-      - address: "0x5F99487aBB087e4479dE7BE56FC7A2Bc7c8f39DC"
-        relayer: "0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C"
+      - address: '0x5F99487aBB087e4479dE7BE56FC7A2Bc7c8f39DC'
+        relayer: '0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C'
         type: trustedRelayerIsm
-      - address: "0x6B05565faDfb7eADD15a7Da7527450d7912bB55F"
+      - address: '0x6B05565faDfb7eADD15a7Da7527450d7912bB55F'
         domains: {}
-        owner: "0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C"
+        owner: '0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C'
         type: defaultFallbackRoutingIsm
     threshold: 1
     type: staticAggregationIsm
-  mailbox: "0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766"
+  mailbox: '0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766'
   name: Tether USD
-  owner: "0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C"
+  owner: '0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C'
   remoteRouters:
-    "153153153": "0x4a69f6F98EB7f7e66188F593F96ff905441Ae0D3"
-    "421614": "0xA2Aa714a0f62F3457dF2417ed6260F76105e8CD8"
+    '153153153': '0x4a69f6F98EB7f7e66188F593F96ff905441Ae0D3'
+    '421614': '0xA2Aa714a0f62F3457dF2417ed6260F76105e8CD8'
   symbol: USDT
-  token: "0x4a1E361B1C8a2BE47222495044183c68AAF7D622"
-  totalSupply: "3110000000"
+  token: '0x4a1E361B1C8a2BE47222495044183c68AAF7D622'
+  totalSupply: '3110000000'
   type: collateral
 x0:
   decimals: 6
   interchainSecurityModule:
-    address: "0x5A7038a57AB52a07E363c451a2C5678565855FfC"
+    address: '0x5A7038a57AB52a07E363c451a2C5678565855FfC'
     modules:
-      - address: "0x506263419604a300225bf191BE4A668BA9D3a040"
-        owner: "0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C"
+      - address: '0x506263419604a300225bf191BE4A668BA9D3a040'
+        owner: '0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C'
         paused: false
         type: pausableIsm
     threshold: 1
     type: staticAggregationIsm
-  mailbox: "0xC867a320b90a21309Eb43F0507473ccb8251F6C8"
+  mailbox: '0xC867a320b90a21309Eb43F0507473ccb8251F6C8'
   name: Tether USD
-  owner: "0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C"
+  owner: '0xE1aAfa448c2f8C63317f8a0C59A60e203C065D1C'
   remoteRouters:
-    "11155111": "0x35eDB2377297962D55b9Fc63E900F1F49DeF5121"
-    "421614": "0xA2Aa714a0f62F3457dF2417ed6260F76105e8CD8"
+    '11155111': '0x35eDB2377297962D55b9Fc63E900F1F49DeF5121'
+    '421614': '0xA2Aa714a0f62F3457dF2417ed6260F76105e8CD8'
   symbol: USDT
-  totalSupply: "151795496"
+  totalSupply: '151795496'
   type: synthetic
-

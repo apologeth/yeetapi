@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=../schema.json
 blockExplorers:
   - apiUrl: https://explorer-x0sepolia-id058i99l1.t.conduit.xyz/api
     family: blockscout
