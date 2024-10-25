@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import TransactionController from '../controllers/transactionController';
 import multer from 'multer';
+import { bearerAuthMiddleware } from '../middlewares/auth';
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -26,5 +27,15 @@ export function transactionRoute(router: Router) {
   router.post(
     '/transactions/bridgeout',
     transactionController.bridgeOut.bind(transactionController),
+  );
+  router.get(
+    '/transaction-history/sent',
+    bearerAuthMiddleware,
+    transactionController.fetchSentHistory.bind(transactionController),
+  );
+  router.get(
+    '/transaction-history/received',
+    bearerAuthMiddleware,
+    transactionController.fetchReceivedHistory.bind(transactionController),
   );
 }

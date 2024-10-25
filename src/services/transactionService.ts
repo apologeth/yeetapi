@@ -26,6 +26,7 @@ import WalletService from './walletService';
 import { isEmail } from '../utils/send-email';
 import InternalServerError from '../errors/internal-server-error';
 import { sequelize } from '../config/database';
+import { Op } from 'sequelize';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
@@ -57,7 +58,10 @@ export default class TransactionService {
     });
     let sentAmount: any = transaction?.sentAmount;
     if (transaction?.sentTokenDetails) {
-      sentAmount = convertToBiggestUnit(sentAmount!, transaction?.sentTokenDetails.decimals);
+      sentAmount = convertToBiggestUnit(
+        sentAmount!,
+        transaction?.sentTokenDetails.decimals,
+      );
     } else if (transaction?.transferType?.includes('NATIVE')) {
       sentAmount = convertToBiggestUnit(sentAmount!, 18);
     } else if (transaction?.type === 'BUY_TOKEN') {
@@ -66,14 +70,30 @@ export default class TransactionService {
 
     let receivedAmount: any = transaction?.receivedAmount;
     if (transaction?.receivedTokenDetails) {
-      receivedAmount = convertToBiggestUnit(receivedAmount!, transaction?.receivedTokenDetails.decimals);
+      receivedAmount = convertToBiggestUnit(
+        receivedAmount!,
+        transaction?.receivedTokenDetails.decimals,
+      );
     } else if (transaction?.transferType?.includes('TO_FIAT')) {
       receivedAmount = convertToBiggestUnit(receivedAmount!, 2);
     } else if (transaction?.transferType?.includes('TO_NATIVE')) {
       receivedAmount = convertToBiggestUnit(receivedAmount!, 18);
     }
 
-    const { id, sender, receiver, sentToken, receivedToken, status, transactionHash, paymentCode, type, transferType, createdAt, updatedAt } = transaction!;
+    const {
+      id,
+      sender,
+      receiver,
+      sentToken,
+      receivedToken,
+      status,
+      transactionHash,
+      paymentCode,
+      type,
+      transferType,
+      createdAt,
+      updatedAt,
+    } = transaction!;
     return {
       id,
       sender,
@@ -89,7 +109,7 @@ export default class TransactionService {
       updatedAt,
       sentAmount,
       receivedAmount,
-    }
+    };
   }
 
   async create(params: {
@@ -286,12 +306,13 @@ export default class TransactionService {
       receivedAmount,
       token?.decimals ?? 18,
     );
-    const adminBalance = receivedTokenAddress ? 
-      await (new ethers.Contract(
-        receivedTokenAddress,
-        SimpleToken.abi,
-        provider,
-      )).balanceOf(langitAdmin.address) : await provider.getBalance(langitAdmin.address);
+    const adminBalance = receivedTokenAddress
+      ? await new ethers.Contract(
+          receivedTokenAddress,
+          SimpleToken.abi,
+          provider,
+        ).balanceOf(langitAdmin.address)
+      : await provider.getBalance(langitAdmin.address);
 
     mustBeTrue(
       new BadRequestError('Insufficient admin balance'),
@@ -312,8 +333,6 @@ export default class TransactionService {
       },
       { transaction: opts?.dbTransaction },
     );
-
-    
 
     const { TransactionId: externalPaymentId, PaymentNo: paymentCode } =
       await this.walletService.createPayment({
@@ -946,5 +965,196 @@ export default class TransactionService {
         `Failed to execute post transaction, error = ${err.message}`,
       );
     }
+  }
+
+  async fetchSentHistory(
+    accountId: string,
+    opts?: { offset: number; limit: number },
+  ) {
+    const offset = opts?.offset ?? 0;
+    const limit = opts?.limit ?? 15;
+
+    const transactions = await Transaction.findAll({
+      where: {
+        [Op.or]: [
+          {
+            sender: accountId,
+            type: 'TRANSFER',
+            [Op.or]: [{ status: 'SENT' }, { status: 'FAILED' }],
+          },
+          {
+            receiver: accountId,
+            type: 'BUY_TOKEN',
+            [Op.or]: [{ status: 'SENT' }, { status: 'FAILED' }],
+            sentAmount: {
+              [Op.ne]: null,
+            },
+            receivedAmount: {
+              [Op.ne]: null,
+            },
+          },
+        ],
+      },
+      include: [
+        {
+          model: Account,
+          as: 'senderAccount',
+        },
+        {
+          model: Token,
+          as: 'sentTokenDetails',
+        },
+        {
+          model: Token,
+          as: 'receivedTokenDetails',
+        },
+      ],
+      offset,
+      limit,
+    });
+    const data = transactions.map((transaction) => {
+      let token;
+      if (transaction.type === 'BUY_TOKEN') {
+        token = {
+          name: 'IDR',
+          symbol: 'IDR',
+        };
+      } else if (transaction.sentTokenDetails) {
+        token = {
+          name: transaction.sentTokenDetails.name,
+          symbol: transaction.sentTokenDetails.symbol,
+          address: transaction.sentTokenDetails.address,
+        };
+      } else {
+        token = {
+          name: 'x0',
+          symbol: 'x0',
+        };
+      }
+
+      return {
+        receiver:
+          transaction.type === 'BUY_TOKEN' ? undefined : transaction.receiver,
+        type: transaction.type,
+        transferType: transaction.transferType,
+        token,
+        amount: convertToBiggestUnit(
+          transaction.sentAmount,
+          (transaction.type === 'TRANSFER'
+            ? transaction.sentTokenDetails?.decimals
+            : 2) ?? 18,
+        ),
+        status: transaction.status,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      };
+    });
+    return {
+      data,
+      meta: {
+        offset,
+        limit,
+      },
+    };
+  }
+
+  async fetchReceivedHistory(
+    accountId: string,
+    opts?: { offset: number; limit: number },
+  ) {
+    const offset = opts?.offset ?? 0;
+    const limit = opts?.limit ?? 15;
+
+    const account = await Account.findByPk(accountId);
+    const transactions = await Transaction.findAll({
+      where: {
+        [Op.or]: [
+          {
+            type: 'TRANSFER',
+            [Op.or]: [
+              { receiver: account?.accountAbstractionAddress },
+              { receiver: account?.fiatWalletId },
+              { status: 'SENT' },
+              { status: 'FAILED' },
+            ],
+          },
+          {
+            receiver: accountId,
+            type: 'BUY_TOKEN',
+            [Op.or]: [{ status: 'SENT' }, { status: 'FAILED' }],
+            sentAmount: {
+              [Op.ne]: null,
+            },
+            receivedAmount: {
+              [Op.ne]: null,
+            },
+          },
+        ],
+      },
+      include: [
+        {
+          model: Account,
+          as: 'senderAccount',
+        },
+        {
+          model: Token,
+          as: 'sentTokenDetails',
+        },
+        {
+          model: Token,
+          as: 'receivedTokenDetails',
+        },
+      ],
+      offset,
+      limit,
+    });
+    const data = transactions.map((transaction) => {
+      let token;
+      if (transaction.receivedTokenDetails) {
+        token = {
+          name: transaction.receivedTokenDetails!.name,
+          symbol: transaction.receivedTokenDetails!.name,
+          address: transaction.receivedTokenDetails!.name,
+        };
+      } else if (transaction.type.includes('TO_FIAT')) {
+        token = {
+          name: 'IDR',
+          symbol: 'IDR',
+        };
+      } else {
+        token = {
+          name: 'x0',
+          symbol: 'x0',
+        };
+      }
+
+      return {
+        sender:
+          transaction.type === 'BUY_TOKEN'
+            ? undefined
+            : transaction.senderAccount?.accountAbstractionAddress,
+        type: transaction.type,
+        transferType: transaction.transferType,
+        token,
+        amount: convertToBiggestUnit(
+          transaction.sentAmount,
+          token.name === 'x0'
+            ? 19
+            : token.name === 'IDR'
+              ? 2
+              : transaction.sentTokenDetails!.decimals,
+        ),
+        status: transaction.status,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      };
+    });
+    return {
+      data,
+      meta: {
+        offset,
+        limit,
+      },
+    };
   }
 }
