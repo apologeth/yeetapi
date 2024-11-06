@@ -12,13 +12,19 @@ module.exports = {
       },
       user_operation_hash: {
         type: Sequelize.STRING,
+        allowNull: false,
+        unique: true,
+      },
+      signature: {
+        type: Sequelize.STRING,
+        allowNull: false,
         unique: true,
       },
       action_type: {
-        type: Sequelize.ENUM('DEPLOY_AA'),
+        type: Sequelize.ENUM('DEPLOY_AA', 'TRANSFER_TOKEN'),
       },
       status: {
-        type: Sequelize.ENUM('SUBMITTED', 'CONFIRMED', 'FAILED'),
+        type: Sequelize.ENUM('INIT', 'SUBMITTED', 'CONFIRMED', 'FAILED'),
       },
       created_at: {
         allowNull: false,

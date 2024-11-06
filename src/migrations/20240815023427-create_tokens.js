@@ -12,9 +12,11 @@ module.exports = {
       },
       name: {
         type: Sequelize.STRING,
+        allowNull: false,
       },
       symbol: {
         type: Sequelize.STRING,
+        allowNull: false,
       },
       address: {
         type: Sequelize.STRING,
@@ -32,9 +34,12 @@ module.exports = {
         type: Sequelize.DATE,
       },
     });
+
+    await queryInterface.addIndex('tokens', ['address']);
   },
 
   async down(queryInterface) {
+    await queryInterface.removeIndex('tokens', ['address']);
     await queryInterface.dropTable('tokens');
   },
 };

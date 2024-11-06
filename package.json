@@ -8,9 +8,10 @@
     "stop:db": "./scripts/stop-db.sh",
     "start:smtp": "ts-node --transpileOnly ./scripts/smtp.ts start",
     "stop:smtp": "ts-node --transpileOnly ./scripts/smtp.ts stop",
+    "start:ganache": "ganache --mnemonic 'test test test test test test test test test test test junk' --db ./ganache-db",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",
-    "migrate": "PGDATABASE=langit ./scripts/ensure-db-exists.sh && npx sequelize-cli db:migrate",
+    "migrate": "PGDATABASE=langit ./scripts/ensure-db-exists.sh && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all",
     "start": "nodemon --exec ts-node src/app.ts",
     "build": "tsc"
   },
@@ -58,15 +59,18 @@
     "@types/nodemailer": "^6.4.15",
     "@types/pg": "^8.11.6",
     "@types/sequelize": "^4.28.20",
+    "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^7.14.1",
     "@typescript-eslint/parser": "^7.14.1",
     "bignumber": "^1.1.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
+    "ganache": "^7.9.2",
     "nodemon": "^3.1.4",
     "prettier": "^3.3.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.2"
+    "typescript": "^5.5.2",
+    "yargs": "^17.7.2"
   }
 }

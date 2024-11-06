@@ -16,12 +16,28 @@ module.exports = {
       external_id: {
         type: Sequelize.STRING,
         unique: true,
+        allowNull: true,
       },
       type: {
-        type: Sequelize.ENUM('CHAIN_TRANSACTION'),
+        type: Sequelize.ENUM('CHAIN_TRANSACTION, BUY_TOKEN'),
+      },
+      sender_address: {
+        type: Sequelize.STRING,
+      },
+      sender_address: {
+        type: Sequelize.STRING,
+      },
+      token_address: {
+        type: Sequelize.STRING,
+      },
+      token_amount: {
+        type: Sequelize.NUMERIC(38, 18),
+      },
+      fiat_amount: {
+        type: Sequelize.NUMERIC(38, 18),
       },
       status: {
-        type: Sequelize.ENUM('INIT', 'PROCESSING', 'SUCCESS', 'FAILED'),
+        type: Sequelize.ENUM('INIT', 'PROCESSING', 'SUCCESS', 'REVERTED', 'FAILED'),
       },
       created_at: {
         allowNull: false,

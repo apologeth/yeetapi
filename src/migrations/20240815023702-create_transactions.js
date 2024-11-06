@@ -12,24 +12,54 @@ module.exports = {
       },
       sender: {
         type: Sequelize.UUID,
+        allowNull: false,
       },
       receiver: {
         type: Sequelize.UUID,
       },
       sent_amount: {
-        type: Sequelize.STRING,
+        type: Sequelize.NUMERIC(38, 18),
+        allowNull: false,
       },
       received_amount: {
-        type: Sequelize.STRING,
+        type: Sequelize.NUMERIC(38, 18),
+        allowNull: false,
       },
       sent_token: {
         type: Sequelize.UUID,
+        allowNull: false,
       },
       received_token: {
         type: Sequelize.UUID,
+        allowNull: false,
+      },
+      transaction_hash: {
+        type: Sequelize.STRING,
+        unique: true,
+        allowNull: true,
+      },
+      payment_code: {
+        type: Sequelize.STRING,
+        unique: true,
+        allowNull: true,
+      },
+      type: {
+        type: Sequelize.ENUM('BUY_TOKEN', 'BUY_PRODUCT', 'TRANSFER', 'WITHDRAW'),
+        allowNull: false,
+      },
+      transfer_type: {
+        type: Sequelize.ENUM(
+          'CRYPTO_TO_CRYPTO',
+          'NATIVE_TO_NATIVE',
+          'CRYPTO_TO_FIAT',
+          'NATIVE_TO_FIAT',
+          'FIAT_TO_CRYPTO',
+        ),
+        allowNull: false,
       },
       status: {
         type: Sequelize.ENUM('INIT', 'SENDING', 'SENT', 'FAILED'),
+        allowNull: false,
       },
       created_at: {
         allowNull: false,
