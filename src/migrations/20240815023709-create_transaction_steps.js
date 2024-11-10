@@ -24,9 +24,6 @@ module.exports = {
       sender_address: {
         type: Sequelize.STRING,
       },
-      sender_address: {
-        type: Sequelize.STRING,
-      },
       token_address: {
         type: Sequelize.STRING,
       },
@@ -37,7 +34,13 @@ module.exports = {
         type: Sequelize.NUMERIC(38, 18),
       },
       status: {
-        type: Sequelize.ENUM('INIT', 'PROCESSING', 'SUCCESS', 'REVERTED', 'FAILED'),
+        type: Sequelize.ENUM(
+          'INIT',
+          'PROCESSING',
+          'SUCCESS',
+          'REVERTED',
+          'FAILED',
+        ),
       },
       created_at: {
         allowNull: false,

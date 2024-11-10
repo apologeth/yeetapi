@@ -44,7 +44,12 @@ module.exports = {
         allowNull: true,
       },
       type: {
-        type: Sequelize.ENUM('BUY_TOKEN', 'BUY_PRODUCT', 'TRANSFER', 'WITHDRAW'),
+        type: Sequelize.ENUM(
+          'BUY_TOKEN',
+          'BUY_PRODUCT',
+          'TRANSFER',
+          'WITHDRAW',
+        ),
         allowNull: false,
       },
       transfer_type: {

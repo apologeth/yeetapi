@@ -1,6 +1,5 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
 
 class Token extends Model {
   public id!: string;

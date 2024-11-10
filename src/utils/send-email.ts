@@ -15,7 +15,7 @@ export async function sendEmail(email: string, subject: string, text: string) {
               pass: ENVIRONMENT.SMTP_PASSWORD,
             }
           : {},
-      service: 'gmail',
+      service: ENVIRONMENT.SMTP_SERVICE,
     });
 
     const mailOptions = {

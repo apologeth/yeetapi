@@ -14,6 +14,7 @@ const ENVIRONMENT = {
   SMTP_PORT: Number(process.env.SMTP_PORT),
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+  SMTP_SERVICE: process.env.SMTP_SERVICE,
 
   ADMIN_NAME: process.env.ADMIN_NAME,
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,

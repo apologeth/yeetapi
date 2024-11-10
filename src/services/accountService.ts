@@ -1,7 +1,7 @@
 import { split } from 'shamir-secret-sharing';
 import ConflictError from '../errors/conflict';
 import { Account } from '../models/Account';
-import { mustBeNull, mustBeTrue, notNull } from '../utils/assert';
+import { mustBeTrue, notNull } from '../utils/assert';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmail } from '../utils/send-email';
 import {
@@ -22,8 +22,8 @@ import {
 import Unauthorized from '../errors/unauthorized';
 import BadRequestError from '../errors/bad-request';
 import { Transaction as DBTransaction } from 'sequelize';
-import { convertToBiggestUnit } from '../utils/conversion';
 import { getContracts } from '../utils/contracts';
+import { zeroAddress } from '../utils/const';
 
 export default class AccountService {
   private chainTransactionService;
@@ -39,16 +39,23 @@ export default class AccountService {
     opts: { dbTransaction: DBTransaction };
   }) {
     const { email, password, fiatWalletId, opts } = params;
-    const existingAccount = await Account.findOne({ where: { email } });
-    mustBeNull(
-      new ConflictError(`email: ${email} is already registered`),
-      existingAccount,
-    );
     const { langitAccountFactory } = await getContracts();
     const registeredEmail = await langitAccountFactory.accountOfEmail(email);
     mustBeTrue(
       new ConflictError(`email: ${email} is already registered`),
-      registeredEmail === '0x0000000000000000000000000000000000000000',
+      registeredEmail === zeroAddress,
+    );
+
+    const account = await Account.create(
+      {
+        email,
+        password: password ? await hashPassword(password) : password,
+        status: 'INIT',
+        fiatWalletId,
+      },
+      {
+        transaction: opts.dbTransaction,
+      },
     );
 
     // Generate ETH private key
@@ -60,34 +67,36 @@ export default class AccountService {
     const encoder = new TextEncoder();
     const shares = await split(encoder.encode(privateKey), 3, 2);
     const shardKMS = shamirKeyToReadableString(shares[0]);
-    const encryptedShard = await encryptToKMS(shardKMS);
 
-    const { accountAbstractionAddress, userOperationHash } =
+    const [encryptedShard] = await Promise.all([
+      encryptToKMS(shardKMS),
+      sendEmail(
+        email,
+        'Your Secret Key',
+        `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
+      ),
+    ]);
+
+    const { accountAbstractionAddress, chainTransactionId } =
       await this.chainTransactionService.deployAccountAbstraction(
         email,
         privateKey,
         opts,
       );
-    const account = await Account.create(
+
+    await account.update(
       {
-        email,
-        password: password ? await hashPassword(password) : password,
+        status: 'CREATING',
         address,
         encryptedShard,
         accountAbstractionAddress,
-        userOperationHash,
-        status: 'INIT',
-        fiatWalletId,
+        chainTransactionId,
       },
       {
         transaction: opts.dbTransaction,
       },
     );
-    await sendEmail(
-      email,
-      'Your Secret Key',
-      `Your secret Key: ${shamirKeyToReadableString(shares[1])}`,
-    );
+
     const tokens = await this._generateToken(account);
 
     return {
@@ -221,7 +230,6 @@ export default class AccountService {
           address: account.address,
           accountAbstractionAddress: account.accountAbstractionAddress,
           status: account.status,
-          fiatBalance: convertToBiggestUnit(account.fiatBalance, 2),
           createdAt: account.createdAt,
           updatedAt: account.updatedAt,
         }

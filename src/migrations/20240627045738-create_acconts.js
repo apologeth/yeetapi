@@ -20,27 +20,22 @@ module.exports = {
       },
       address: {
         type: Sequelize.STRING,
-        allowNull: false,
         unique: true,
       },
-      // Fiat wallet must be unique, 
-      // but for testing purpose we only use one fiat wallet id 
+      // Fiat wallet must be unique,
+      // but for testing purpose we only use one fiat wallet id
       // for all accounts
       fiat_wallet_id: {
         type: Sequelize.STRING,
       },
       account_abstraction_address: {
         type: Sequelize.STRING,
-        allowNull: false,
       },
       chain_transaction_id: {
         type: Sequelize.UUID,
-        unique: true,
-        allowNull: false,
       },
       encrypted_shard: {
         type: Sequelize.TEXT,
-        allowNull: false,
       },
       status: {
         type: Sequelize.ENUM('INIT', 'CREATING', 'CREATED', 'FAILED'),
@@ -52,7 +47,6 @@ module.exports = {
         type: Sequelize.DATE,
       },
       updated_at: {
-        allowNull: false,
         type: Sequelize.DATE,
       },
     });
@@ -74,7 +68,9 @@ module.exports = {
   async down(queryInterface) {
     await queryInterface.removeIndex('accounts', ['email']);
     await queryInterface.removeIndex('accounts', ['address']);
-    await queryInterface.removeIndex('accounts', ['account_abstraction_address']);
+    await queryInterface.removeIndex('accounts', [
+      'account_abstraction_address',
+    ]);
     await queryInterface.dropTable('accounts');
   },
 };

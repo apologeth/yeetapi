@@ -1,6 +1,12 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 
+export enum AccountStatus {
+  INIT = 'INIT',
+  CREATING = 'CREATING',
+  CREATED = 'CREATED',
+  FAILED = 'FAILED',
+}
 class Account extends Model {
   public id!: string;
   public email!: string;
@@ -8,11 +14,11 @@ class Account extends Model {
   public address!: string;
   public accountAbstractionAddress!: string;
   public encryptedShard!: string;
-  public fiatWalletId!: string | undefined;
-  public fiatBalance!: string;
-  public status!: string;
-  public createdAt!: string;
-  public updatedAt!: string;
+  public fiatWalletId!: string | null;
+  public chainTransactionId!: string | null;
+  public status!: AccountStatus;
+  public createdAt!: Date;
+  public updatedAt!: Date | null;
 }
 
 Account.init(
@@ -40,30 +46,23 @@ Account.init(
     accountAbstractionAddress: {
       type: DataTypes.STRING,
     },
-    userOperationHash: {
-      type: DataTypes.STRING,
-      unique: true,
-    },
     encryptedShard: {
       type: DataTypes.STRING,
     },
     status: {
-      type: DataTypes.ENUM('INIT', 'CREATED', 'FAILED'),
+      type: DataTypes.ENUM(...Object.values(AccountStatus)),
     },
     fiatWalletId: {
       type: DataTypes.STRING,
     },
-    fiatBalance: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      defaultValue: '0',
+    chainTransactionId: {
+      type: DataTypes.UUID,
     },
     createdAt: {
       allowNull: false,
       type: DataTypes.DATE,
     },
     updatedAt: {
-      allowNull: false,
       type: DataTypes.DATE,
     },
   },

@@ -41,7 +41,7 @@ export default class ChainTransactionService {
       '',
     ]);
 
-    const userOp = await setupUserOpExecute({
+    const userOperation = await setupUserOpExecute({
       signer,
       sender: accountAbstractionAddress,
       initCode,
@@ -49,9 +49,9 @@ export default class ChainTransactionService {
       value: '0',
       callData,
     });
+    const userOperationHash = await sendUserOperation(userOperation);
 
-    const userOperationHash = await sendUserOperation(userOp);
-    await ChainTransaction.create(
+    const chainTransaction = await ChainTransaction.create(
       {
         userOperationHash,
         actionType: 'DEPLOY_AA',
@@ -62,7 +62,7 @@ export default class ChainTransactionService {
 
     return {
       accountAbstractionAddress,
-      userOperationHash,
+      chainTransactionId: chainTransaction.id,
     };
   }
 
@@ -85,7 +85,7 @@ export default class ChainTransactionService {
       ]);
     }
 
-    const userOp = await setupUserOpExecute({
+    const userOperation = await setupUserOpExecute({
       signer,
       sender: transactionStep.senderAddress!,
       initCode: '0x',
@@ -93,8 +93,8 @@ export default class ChainTransactionService {
       value: transactionStep.tokenAddress ? '0' : transactionStep.tokenAmount,
       callData,
     });
+    const userOperationHash = await sendUserOperation(userOperation);
 
-    const userOperationHash = await sendUserOperation(userOp);
     await ChainTransaction.create(
       {
         userOperationHash,

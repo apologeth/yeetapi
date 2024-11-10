@@ -12,12 +12,11 @@ module.exports = {
       },
       user_operation_hash: {
         type: Sequelize.STRING,
-        allowNull: false,
         unique: true,
       },
       signature: {
         type: Sequelize.STRING,
-        allowNull: false,
+        allowNull: true,
         unique: true,
       },
       action_type: {

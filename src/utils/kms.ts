@@ -21,7 +21,6 @@ export async function encryptToKMS(shardKMS: string) {
 
   const data = await kms.encrypt(params).promise();
   const encryptedShard = data.CiphertextBlob?.toString('base64');
-  console.log(encryptedShard);
   return encryptedShard;
 }
 

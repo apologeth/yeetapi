@@ -31,15 +31,13 @@ export default class TokenController {
       notNull(new BadRequestError('address is required'), address);
       notNull(new BadRequestError('decimals is required'), decimals);
 
-      createSuccessResponse(
-        response,
-        await this.tokenService.create({
-          name,
-          symbol,
-          address,
-          decimals,
-        }),
-      );
+      await this.tokenService.create({
+        name,
+        symbol,
+        address,
+        decimals,
+      });
+      createSuccessResponse(response);
     } catch (error: any) {
       createErrorResponse(response, error);
     }

@@ -137,11 +137,11 @@ export default class WorkerService {
     dbTransaction: DBTransaction,
   ) {
     const account = await Account.findOne({
-      where: { userOperationHash: chainTransaction.userOperationHash },
+      where: { chainTransactionId: chainTransaction.id },
     });
     if (!account) {
       throw new NotFoundError(
-        `account with transaction hash ${chainTransaction.userOperationHash} is not found`,
+        `account with chain transaction id ${chainTransaction.id} is not found`,
       );
     }
 

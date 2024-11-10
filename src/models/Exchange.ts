@@ -1,6 +1,5 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
 
 export enum ExchangeStatus {
   OPENED = 'OPENED',
