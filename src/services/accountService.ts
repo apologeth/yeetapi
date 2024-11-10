@@ -1,6 +1,6 @@
 import { split } from 'shamir-secret-sharing';
 import ConflictError from '../errors/conflict';
-import { Account } from '../models/Account';
+import { Account, ACCOUNT_STATUS } from '../models/Account';
 import { mustBeTrue, notNull } from '../utils/assert';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmail } from '../utils/send-email';
@@ -50,7 +50,7 @@ export default class AccountService {
       {
         email,
         password: password ? await hashPassword(password) : password,
-        status: 'INIT',
+        status: ACCOUNT_STATUS.INIT,
         fiatWalletId,
       },
       {
@@ -86,7 +86,7 @@ export default class AccountService {
 
     await account.update(
       {
-        status: 'CREATING',
+        status: ACCOUNT_STATUS.CREATING,
         address,
         encryptedShard,
         accountAbstractionAddress,

@@ -19,19 +19,31 @@ module.exports = {
         allowNull: true,
       },
       type: {
-        type: Sequelize.ENUM('CHAIN_TRANSACTION, BUY_TOKEN'),
+        type: Sequelize.ENUM(
+          'AA_CHAIN_TRANSACTION',
+          'EOA_CHAIN_TRANSACTION',
+          'WALLET_TRANSFER',
+          'WALLET_PAYMENT',
+        ),
       },
-      sender_address: {
+      sender: {
+        type: Sequelize.STRING,
+      },
+      receiver: {
         type: Sequelize.STRING,
       },
       token_address: {
         type: Sequelize.STRING,
       },
       token_amount: {
-        type: Sequelize.NUMERIC(38, 18),
+        type: Sequelize.NUMERIC(27, 0),
       },
       fiat_amount: {
-        type: Sequelize.NUMERIC(38, 18),
+        type: Sequelize.NUMERIC(27, 0),
+      },
+      priority: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
       },
       status: {
         type: Sequelize.ENUM(
@@ -47,7 +59,6 @@ module.exports = {
         type: Sequelize.DATE,
       },
       updated_at: {
-        allowNull: false,
         type: Sequelize.DATE,
       },
     });

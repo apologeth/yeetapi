@@ -16,11 +16,19 @@ export enum TRANSACTION_TYPE {
   TRANSFER = 'TRANSFER',
 }
 
+export enum TRANSACTION_STATUS {
+  INIT = 'INIT',
+  SENDING = 'SENDING',
+  SENT = 'SENT',
+  FAILED = 'FAILED',
+}
+
 class Transaction extends Model {
   public id!: string;
   public sender!: string;
-  public receiver!: string | undefined | null;
-  public senderAccount!: Account | undefined | null;
+  public receiver!: string | null;
+  public senderAccount!: Account | null;
+  public receiverAccount!: Account | null;
   public sentAmount!: string;
   public receivedAmount!: string | undefined | null;
   public sentToken!: string | undefined | null;
@@ -31,7 +39,7 @@ class Transaction extends Model {
   public paymentCode!: string | undefined | null;
   public type!: TRANSACTION_TYPE;
   public transferType!: TRANSFER_TYPE;
-  public status!: string;
+  public status!: TRANSACTION_STATUS;
   public createdAt!: string;
   public updatedAt!: string;
 }
@@ -47,25 +55,30 @@ Transaction.init(
     },
     sender: {
       type: DataTypes.STRING,
+      allowNull: false,
     },
     receiver: {
       type: DataTypes.STRING,
+      allowNull: false,
     },
     sentAmount: {
       type: DataTypes.STRING,
+      allowNull: false,
     },
     receivedAmount: {
       type: DataTypes.STRING,
+      allowNull: false,
     },
     sentToken: {
       type: DataTypes.STRING,
-      unique: true,
+      allowNull: false,
     },
     receivedToken: {
       type: DataTypes.NUMBER,
+      allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM('INIT', 'SENDING', 'SENT', 'FAILED'),
+      type: DataTypes.ENUM(...Object.keys(TRANSACTION_STATUS)),
     },
     transactionHash: {
       type: DataTypes.STRING,
@@ -90,7 +103,6 @@ Transaction.init(
       type: DataTypes.DATE,
     },
     updatedAt: {
-      allowNull: false,
       type: DataTypes.DATE,
     },
   },
@@ -105,6 +117,11 @@ Transaction.init(
 Transaction.belongsTo(Account, {
   foreignKey: 'sender',
   as: 'senderAccount',
+});
+
+Transaction.belongsTo(Account, {
+  foreignKey: 'receiver',
+  as: 'receiverAccount',
 });
 
 Transaction.belongsTo(Token, {

@@ -59,13 +59,11 @@ export default class WorkerService {
     });
 
     const promises = chainTransactions.map(async (chainTransaction) => {
-      let receipt = await getUserOperationReceipt(
-        chainTransaction.userOperationHash,
-      );
+      let receipt = await getUserOperationReceipt(chainTransaction.hash);
 
       if (!receipt.success) {
         const ethReceipt = (await provider.getTransactionReceipt(
-          chainTransaction.userOperationHash,
+          chainTransaction.hash,
         )) as any;
         receipt = {
           userOperationHash: ethReceipt.transactionHash,
@@ -99,7 +97,7 @@ export default class WorkerService {
         await dbTransaction.commit();
       } catch (e) {
         console.log(
-          `Failed to update chain transaction ${chainTransaction.userOperationHash}, error = ${e}`,
+          `Failed to update chain transaction ${chainTransaction.hash}, error = ${e}`,
         );
         await dbTransaction.rollback();
       }
@@ -117,7 +115,7 @@ export default class WorkerService {
         case 'DEPLOY_AA':
           await this.updateAccountStatus(chainTransaction, dbTransaction);
           break;
-        case 'TRANSFER_TOKEN':
+        case 'AA_TRANSFER':
           await this.updateTransactionStepStatus(
             chainTransaction,
             dbTransaction,
@@ -163,7 +161,7 @@ export default class WorkerService {
     const status =
       chainTransaction.status === 'CONFIRMED' ? 'SUCCESS' : 'FAILED';
     await this.transactionService.finalizeTransactionStep(
-      chainTransaction.userOperationHash,
+      chainTransaction.id,
       status,
       transactionHash,
       { dbTransaction },

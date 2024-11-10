@@ -1,21 +1,22 @@
 import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '../config/database';
 
-export enum ChainTransactionActionType {
+export enum CHAIN_TRANSACTION_ACTION_TYPE {
   DEPLOY_AA = 'DEPLOY_AA',
-  TRANSFER_TOKEN = 'TRANSFER_TOKEN',
+  AA_TRANSFER = 'AA_TRANSFER',
+  EOA_TRANSFER = 'EOA_TRANSFER',
 }
 
-export enum ChainTransactionStatus {
+export enum CHAIN_TRANSACTION_STATUS {
   SUBMITTED = 'SUBMITTED',
   CONFIRMED = 'CONFIRMED',
   FAILED = 'FAILED',
 }
 class ChainTransaction extends Model {
-  public id!: number;
-  public userOperationHash!: string;
-  public actionType!: ChainTransactionActionType;
-  public status!: ChainTransactionStatus;
+  public id!: string;
+  public hash!: string;
+  public actionType!: CHAIN_TRANSACTION_ACTION_TYPE;
+  public status!: CHAIN_TRANSACTION_STATUS;
   public createdAt!: Date;
   public updatedAt!: Date | null;
 }
@@ -28,15 +29,15 @@ ChainTransaction.init(
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
     },
-    userOperationHash: {
+    hash: {
       type: DataTypes.STRING,
       unique: true,
     },
     actionType: {
-      type: DataTypes.ENUM(...Object.values(ChainTransactionActionType)),
+      type: DataTypes.ENUM(...Object.values(CHAIN_TRANSACTION_ACTION_TYPE)),
     },
     status: {
-      type: DataTypes.ENUM(...Object.values(ChainTransactionStatus)),
+      type: DataTypes.ENUM(...Object.values(CHAIN_TRANSACTION_STATUS)),
     },
     createdAt: {
       allowNull: false,

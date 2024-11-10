@@ -18,11 +18,11 @@ module.exports = {
         type: Sequelize.UUID,
       },
       sent_amount: {
-        type: Sequelize.NUMERIC(38, 18),
+        type: Sequelize.NUMERIC(27, 0),
         allowNull: false,
       },
       received_amount: {
-        type: Sequelize.NUMERIC(38, 18),
+        type: Sequelize.NUMERIC(27, 0),
         allowNull: false,
       },
       sent_token: {
@@ -71,7 +71,6 @@ module.exports = {
         type: Sequelize.DATE,
       },
       updated_at: {
-        allowNull: false,
         type: Sequelize.DATE,
       },
     });

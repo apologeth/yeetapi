@@ -2,11 +2,16 @@ import { ethers } from 'ethers';
 import { getContracts, provider } from '../utils/contracts';
 import LangitAccount from '../contracts/LangitAccount.json';
 import { langitAdmin, setupUserOpExecute } from '../utils/user-operation';
-import { ChainTransaction } from '../models/ChainTransaction';
+import {
+  CHAIN_TRANSACTION_ACTION_TYPE,
+  CHAIN_TRANSACTION_STATUS,
+  ChainTransaction,
+} from '../models/ChainTransaction';
 import SimpleToken from '../contracts/SimpleToken.json';
 import { Transaction as DBTransaction } from 'sequelize';
 import { TransactionStep } from '../models/TransactionStep';
 import { sendUserOperation } from '../utils/bundler';
+import { nativeTokenAddress } from '../utils/const';
 
 export default class ChainTransactionService {
   async deployAccountAbstraction(
@@ -49,13 +54,13 @@ export default class ChainTransactionService {
       value: '0',
       callData,
     });
-    const userOperationHash = await sendUserOperation(userOperation);
+    const hash = await sendUserOperation(userOperation);
 
     const chainTransaction = await ChainTransaction.create(
       {
-        userOperationHash,
-        actionType: 'DEPLOY_AA',
-        status: 'SUBMITTED',
+        hash,
+        actionType: CHAIN_TRANSACTION_ACTION_TYPE.DEPLOY_AA,
+        status: CHAIN_TRANSACTION_STATUS.SUBMITTED,
       },
       { transaction: opts.dbTransaction },
     );
@@ -66,78 +71,90 @@ export default class ChainTransactionService {
     };
   }
 
-  async transferToken(
+  async aaTransfer(
     transactionStep: TransactionStep,
     accountPrivateKey: string,
     opts: { dbTransaction: DBTransaction },
   ) {
     const signer = new ethers.Wallet(accountPrivateKey);
     let callData = '0x';
-    if (transactionStep.tokenAddress) {
+    if (transactionStep.tokenAddress !== nativeTokenAddress) {
       const token = new ethers.Contract(
-        transactionStep.tokenAddress,
+        transactionStep.tokenAddress!,
         SimpleToken.abi,
         provider,
       );
       callData = token.interface.encodeFunctionData('transfer', [
-        transactionStep.receiverAddress,
+        transactionStep.receiver!,
         transactionStep.tokenAmount,
       ]);
     }
 
     const userOperation = await setupUserOpExecute({
       signer,
-      sender: transactionStep.senderAddress!,
+      sender: transactionStep.sender!,
       initCode: '0x',
-      target: transactionStep.tokenAddress ?? transactionStep.receiverAddress!,
-      value: transactionStep.tokenAddress ? '0' : transactionStep.tokenAmount,
+      target:
+        transactionStep.tokenAddress !== nativeTokenAddress
+          ? transactionStep.tokenAddress!
+          : transactionStep.receiver!,
+      value:
+        transactionStep.tokenAddress !== nativeTokenAddress
+          ? '0'
+          : transactionStep.tokenAmount!,
       callData,
     });
-    const userOperationHash = await sendUserOperation(userOperation);
+    const hash = await sendUserOperation(userOperation);
 
-    await ChainTransaction.create(
+    const chainTransaction = await ChainTransaction.create(
       {
-        userOperationHash,
-        actionType: 'TRANSFER_TOKEN',
-        status: 'SUBMITTED',
+        hash,
+        actionType: CHAIN_TRANSACTION_ACTION_TYPE.AA_TRANSFER,
+        status: CHAIN_TRANSACTION_STATUS.SUBMITTED,
       },
       { transaction: opts.dbTransaction },
     );
 
-    return userOperationHash;
+    return chainTransaction.id;
   }
 
-  async adminTransferToken(
+  async eoaTransfer(
     transactionStep: TransactionStep,
     opts: { dbTransaction: DBTransaction },
   ) {
     const signer = langitAdmin;
     let callData;
-    if (transactionStep.tokenAddress) {
+    if (transactionStep.tokenAddress !== nativeTokenAddress) {
       const token = new ethers.Contract(
-        transactionStep.tokenAddress,
+        transactionStep.tokenAddress!,
         SimpleToken.abi,
         provider,
       );
       callData = token.interface.encodeFunctionData('transfer', [
-        transactionStep.receiverAddress,
+        transactionStep.receiver,
         transactionStep.tokenAmount,
       ]);
     }
     const response = await signer.connect(provider).sendTransaction({
-      value: transactionStep.tokenAddress ? '0' : transactionStep.tokenAmount,
-      to: transactionStep.tokenAddress ?? transactionStep.receiverAddress!,
+      value:
+        transactionStep.tokenAddress !== nativeTokenAddress
+          ? '0'
+          : transactionStep.tokenAmount!,
+      to:
+        transactionStep.tokenAddress !== nativeTokenAddress
+          ? transactionStep.tokenAddress!
+          : transactionStep.receiver!,
       data: callData,
     });
-    await ChainTransaction.create(
+    const { id } = await ChainTransaction.create(
       {
-        userOperationHash: response.hash,
-        actionType: 'TRANSFER_TOKEN',
-        status: 'SUBMITTED',
+        hash: response.hash,
+        actionType: CHAIN_TRANSACTION_ACTION_TYPE.EOA_TRANSFER,
+        status: CHAIN_TRANSACTION_STATUS.SUBMITTED,
       },
       { transaction: opts.dbTransaction },
     );
 
-    return response.hash;
+    return id;
   }
 }

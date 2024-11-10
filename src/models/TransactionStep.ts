@@ -1,6 +1,20 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 
+export enum TRANSACTION_STEP_TYPE {
+  AA_CHAIN_TRANSACTION = 'AA_CHAIN_TRANSACTION',
+  EOA_CHAIN_TRANSACTION = 'EOA_CHAIN_TRANSACTION',
+  WALLET_TRANSFER = 'WALLET_TRANSFER',
+  WALLET_PAYMENT = 'WALLET_PAYMENT',
+}
+
+export enum TRANSACTION_STEP_STATUS {
+  INIT = 'INIT',
+  PROCESSING = 'PROCESSING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+}
+
 class TransactionStep extends Model {
   public id!: string;
   public transactionId!: string;
@@ -8,11 +22,11 @@ class TransactionStep extends Model {
   public type!: string;
   public status!: string;
   public priority!: number;
-  public senderAddress!: string | undefined | null;
-  public receiverAddress!: string | undefined | null;
-  public tokenAddress!: string | undefined | null;
-  public tokenAmount!: string;
-  public fiatAmount!: string | undefined | null;
+  public sender!: string | null;
+  public receiver!: string | null;
+  public tokenAddress!: string | null;
+  public tokenAmount!: string | null;
+  public fiatAmount!: string | null;
   public createdAt!: string;
   public updatedAt!: string;
 }
@@ -33,30 +47,19 @@ TransactionStep.init(
       type: DataTypes.STRING,
     },
     type: {
-      type: DataTypes.ENUM(
-        'CHAIN_TRANSACTION',
-        'EXCHANGE_TO_FIAT',
-        'BUY_TOKEN',
-        'ADMIN_CHAIN_TRANSACTION',
-      ),
+      type: DataTypes.ENUM(...Object.values(TRANSACTION_STEP_TYPE)),
     },
     status: {
-      type: DataTypes.ENUM(
-        'INIT',
-        'PROCESSING',
-        'SUCCESS',
-        'FAILED',
-        'REVERTED',
-      ),
+      type: DataTypes.ENUM(...Object.values(TRANSACTION_STEP_STATUS)),
     },
     priority: {
       type: DataTypes.NUMBER,
       allowNull: false,
     },
-    senderAddress: {
+    sender: {
       type: DataTypes.STRING,
     },
-    receiverAddress: {
+    receiver: {
       type: DataTypes.STRING,
     },
     tokenAddress: {

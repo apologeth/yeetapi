@@ -1,7 +1,7 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 
-export enum AccountStatus {
+export enum ACCOUNT_STATUS {
   INIT = 'INIT',
   CREATING = 'CREATING',
   CREATED = 'CREATED',
@@ -16,7 +16,7 @@ class Account extends Model {
   public encryptedShard!: string;
   public fiatWalletId!: string | null;
   public chainTransactionId!: string | null;
-  public status!: AccountStatus;
+  public status!: ACCOUNT_STATUS;
   public createdAt!: Date;
   public updatedAt!: Date | null;
 }
@@ -50,7 +50,7 @@ Account.init(
       type: DataTypes.STRING,
     },
     status: {
-      type: DataTypes.ENUM(...Object.values(AccountStatus)),
+      type: DataTypes.ENUM(...Object.values(ACCOUNT_STATUS)),
     },
     fiatWalletId: {
       type: DataTypes.STRING,

@@ -3,6 +3,7 @@ import { Token } from '../models/Token';
 import { ethers } from 'ethers';
 import {
   Transaction,
+  TRANSACTION_STATUS,
   TRANSACTION_TYPE,
   TRANSFER_TYPE,
 } from '../models/Transaction';
@@ -10,7 +11,11 @@ import { Account } from '../models/Account';
 import NotFoundError from '../errors/not-found';
 import { mustBeTrue, notNull } from '../utils/assert';
 import { recoverPrivateKey } from '../utils/shamir-key';
-import { TransactionStep } from '../models/TransactionStep';
+import {
+  TRANSACTION_STEP_TYPE,
+  TRANSACTION_STEP_STATUS,
+  TransactionStep,
+} from '../models/TransactionStep';
 import ChainTransactionService from './chainTransactionService';
 import SimpleToken from '../contracts/SimpleToken.json';
 import { provider } from '../utils/contracts';
@@ -27,6 +32,8 @@ import { isEmail } from '../utils/send-email';
 import InternalServerError from '../errors/internal-server-error';
 import { sequelize } from '../config/database';
 import { Op } from 'sequelize';
+import { fiatTokenAddress, nativeTokenAddress } from '../utils/const';
+import ENVIRONMENT from '../config/environment';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
@@ -213,13 +220,7 @@ export default class TransactionService {
     transferType: TRANSFER_TYPE;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const {
-      senderAddress,
-      shardDevice,
-      receiverAddress: _receiverAddress,
-      transferType,
-      opts,
-    } = params;
+    const { senderAddress, shardDevice, receiverAddress, opts } = params;
 
     const sender = await Account.findOne({
       where: { accountAbstractionAddress: senderAddress },
@@ -228,10 +229,7 @@ export default class TransactionService {
       throw new NotFoundError('Unknown sender');
     }
 
-    const receiverAddress = await this.getReceiverAddress(
-      _receiverAddress,
-      transferType,
-    );
+    const receiver = await this.getReceiver(receiverAddress);
 
     const privateKey = await recoverPrivateKey(
       sender.encryptedShard!,
@@ -246,7 +244,7 @@ export default class TransactionService {
     const { id: transactionId } = await this.createTransfer({
       ...params,
       sender,
-      receiverAddress,
+      receiver,
     });
 
     const transaction = (await Transaction.findByPk(transactionId, {
@@ -254,6 +252,10 @@ export default class TransactionService {
         {
           model: Account,
           as: 'senderAccount',
+        },
+        {
+          model: Account,
+          as: 'receiverAccount',
         },
         {
           model: Token,
@@ -295,24 +297,25 @@ export default class TransactionService {
       throw new NotFoundError('Unknown receiver');
     }
 
-    let token;
-    if (receivedTokenAddress) {
-      token = await Token.findOne({
-        where: { address: receivedTokenAddress },
-      });
-    }
+    const fiatToken = await Token.findOne({
+      where: { address: fiatTokenAddress },
+    });
+    const token = await Token.findOne({
+      where: { address: receivedTokenAddress ?? nativeTokenAddress },
+    });
 
     const amountInSmallestUnit = convertToSmallestUnit(
       receivedAmount,
-      token?.decimals ?? 18,
+      token!.decimals!,
     );
-    const adminBalance = receivedTokenAddress
-      ? await new ethers.Contract(
-          receivedTokenAddress,
-          SimpleToken.abi,
-          provider,
-        ).balanceOf(langitAdmin.address)
-      : await provider.getBalance(langitAdmin.address);
+    const adminBalance =
+      receivedTokenAddress !== nativeTokenAddress
+        ? await new ethers.Contract(
+            receivedTokenAddress!,
+            SimpleToken.abi,
+            provider,
+          ).balanceOf(langitAdmin.address)
+        : await provider.getBalance(langitAdmin.address);
 
     mustBeTrue(
       new BadRequestError('Insufficient admin balance'),
@@ -322,104 +325,74 @@ export default class TransactionService {
     const tokenPriceInIDR = (await this.exchangeService.getTokenAmount(1))
       .price;
     const amountToSend = receivedAmount * tokenPriceInIDR;
-    const transaction = await Transaction.create(
+    const { id: transactionId } = await Transaction.create(
       {
+        sender: receiver.id,
         receiver: receiver.id,
-        receivedToken: token?.id,
+        sentToken: fiatToken!.id,
+        receivedToken: token!.id,
+        sentAmount: convertToSmallestUnit(
+          amountToSend,
+          fiatToken!.decimals,
+        ).toString(),
         receivedAmount: amountInSmallestUnit.toString(),
-        sentAmount: convertToSmallestUnit(amountToSend, 2).toString(),
-        status: 'INIT',
-        type: 'BUY_TOKEN',
+        status: TRANSACTION_STATUS.INIT,
+        type: TRANSACTION_TYPE.BUY_TOKEN,
       },
       { transaction: opts?.dbTransaction },
     );
-
-    const { TransactionId: externalPaymentId, PaymentNo: paymentCode } =
-      await this.walletService.createPayment({
-        referenceId: transaction.id,
-        email: receiver.email,
-        amount: amountToSend,
-      });
-
-    await TransactionStep.create(
-      {
-        id: uuid(),
-        transactionId: transaction.id,
-        externalId: externalPaymentId,
-        type: 'BUY_TOKEN',
-        status: 'PROCESSING',
-        priority: 0,
-        receiverAddress: receiver.accountAbstractionAddress,
-        tokenAddress: token?.address,
-        tokenAmount: amountInSmallestUnit.toString(),
-      },
-      { transaction: opts?.dbTransaction },
+    const transaction = (await Transaction.findByPk(transactionId, {
+      include: [
+        {
+          model: Account,
+          as: 'senderAccount',
+        },
+        {
+          model: Account,
+          as: 'receiverAccount',
+        },
+        {
+          model: Token,
+          as: 'sentTokenDetails',
+        },
+        {
+          model: Token,
+          as: 'receivedTokenDetails',
+        },
+      ],
+      transaction: opts.dbTransaction,
+    }))!;
+    const steps = await this.createTransactionSteps(
+      transaction,
+      opts.dbTransaction,
     );
-
-    await TransactionStep.create(
-      {
-        id: uuid(),
-        transactionId: transaction.id,
-        type: 'ADMIN_CHAIN_TRANSACTION',
-        status: 'INIT',
-        priority: 1,
-        receiverAddress: receiver.accountAbstractionAddress,
-        tokenAddress: token?.address,
-        tokenAmount: amountInSmallestUnit.toString(),
-      },
-      { transaction: opts?.dbTransaction },
-    );
-
-    await transaction.update(
-      {
-        paymentCode,
-      },
-      { transaction: opts?.dbTransaction },
-    );
+    await this.executeTransactionStep(steps[0], opts.dbTransaction);
 
     return transaction;
   }
 
-  private async getReceiverAddress(
-    receiverAddress: string,
-    transferType: TRANSFER_TYPE,
-  ) {
+  private async getReceiver(receiverAddress: string): Promise<Account> {
     if (!isEmail(receiverAddress) && !ethers.utils.isAddress(receiverAddress)) {
       throw new BadRequestError(
         'receiver address must be either email or EOA or account abstraction',
       );
     }
-
-    const receiver = await Account.findOne({
+    const account = await Account.findOne({
       where: isEmail(receiverAddress)
         ? { email: receiverAddress }
         : { accountAbstractionAddress: receiverAddress },
     });
+    notNull(
+      new BadRequestError('uknonwn email or account abstraction address'),
+      account,
+    );
 
-    switch (transferType) {
-      case TRANSFER_TYPE.CRYPTO_TO_CRYPTO:
-        return receiver?.accountAbstractionAddress ?? receiverAddress;
-      case TRANSFER_TYPE.NATIVE_TO_NATIVE:
-        return receiver?.accountAbstractionAddress ?? receiverAddress;
-      case TRANSFER_TYPE.CRYPTO_TO_FIAT:
-      case TRANSFER_TYPE.NATIVE_TO_FIAT:
-        notNull(
-          new BadRequestError(
-            'this email address must be associated with fiat wallet id',
-          ),
-          receiver?.fiatWalletId,
-        );
-        return receiver!.fiatWalletId!;
-      default:
-        throw new InternalServerError(
-          'must be not here: unknown transfer type',
-        );
-    }
+    return account!;
   }
 
   private async createTransfer(params: {
     sender: Account;
-    receiverAddress: string;
+    receiver: Account;
     sentAmount: number;
     receivedAmount?: number;
     sentTokenAddress?: string;
@@ -433,14 +406,9 @@ export default class TransactionService {
           new BadRequestError('sent_token_address is required'),
           params.sentTokenAddress,
         );
-        notNull(
-          new BadRequestError('received_token_address is required'),
-          params.receivedTokenAddress,
-        );
         return this.createCryptoToCryptoTransfer({
           ...params,
           sentTokenAddress: params.sentTokenAddress!,
-          receivedTokenAddress: params.receivedTokenAddress!,
         });
       case TRANSFER_TYPE.NATIVE_TO_NATIVE:
         return this.createNativeToNativeTransfer(params);
@@ -453,13 +421,6 @@ export default class TransactionService {
           new BadRequestError('received_amount is required'),
           params.receivedAmount,
         );
-        console.log(params.receiverAddress);
-        mustBeTrue(
-          new BadRequestError(
-            'receiver_address must be email address with fiat wallet id',
-          ),
-          !ethers.utils.isAddress(params.receiverAddress),
-        );
         return this.createCryptoToFiatTransfer({
           ...params,
           sentTokenAddress: params.sentTokenAddress!,
@@ -469,12 +430,6 @@ export default class TransactionService {
         notNull(
           new BadRequestError('received_amount is required'),
           params.receivedAmount,
-        );
-        mustBeTrue(
-          new BadRequestError(
-            'receiver_address must be email address with fiat wallet id',
-          ),
-          !ethers.utils.isAddress(params.receiverAddress),
         );
         return this.createNativeToFiatTransfer({
           ...params,
@@ -487,30 +442,18 @@ export default class TransactionService {
 
   private async createCryptoToCryptoTransfer(params: {
     sender: Account;
-    receiverAddress: string;
+    receiver: Account;
     sentAmount: number;
     sentTokenAddress: string;
-    receivedTokenAddress: string;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const {
-      sender,
-      receiverAddress,
-      sentAmount,
-      sentTokenAddress,
-      receivedTokenAddress,
-      opts,
-    } = params;
+    const { sender, receiver, sentAmount, sentTokenAddress, opts } = params;
 
     const sentToken = await Token.findOne({
       where: { address: sentTokenAddress },
     });
-    const receivedToken = await Token.findOne({
-      where: { address: receivedTokenAddress },
-    });
 
     notNull(new BadRequestError('Unknown sent token'), sentToken);
-    notNull(new BadRequestError('Unknown recived token'), receivedToken);
 
     const amountInSmallestUnit = convertToSmallestUnit(
       sentAmount,
@@ -532,12 +475,13 @@ export default class TransactionService {
     return await Transaction.create(
       {
         sender: sender.id,
-        receiver: receiverAddress,
-        sentToken: sentToken?.id,
-        receivedToken: receivedToken?.id,
+        receiver: receiver.id,
+        sentToken: sentToken!.id,
+        receivedToken: sentToken!.id,
         sentAmount: amountInSmallestUnit.toString(),
-        status: 'INIT',
-        transferType: 'CRYPTO_TO_CRYPTO',
+        receivedAmount: amountInSmallestUnit.toString(),
+        status: TRANSACTION_STATUS.INIT,
+        transferType: TRANSFER_TYPE.CRYPTO_TO_CRYPTO,
       },
       { transaction: opts?.dbTransaction },
     );
@@ -545,12 +489,17 @@ export default class TransactionService {
 
   private async createNativeToNativeTransfer(params: {
     sender: Account;
-    receiverAddress: string;
+    receiver: Account;
     sentAmount: number;
     transferType: TRANSFER_TYPE;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const { sender, receiverAddress, sentAmount, opts } = params;
+    const { sender, receiver, sentAmount, opts } = params;
+
+    const token = await Token.findOne({
+      where: { address: nativeTokenAddress },
+    });
+    notNull(new InternalServerError('Native token has not been set'), token);
 
     const amountInSmallestUnit = convertToSmallestUnit(sentAmount, 18);
     const nativeTokenBalance = await provider.getBalance(
@@ -564,10 +513,13 @@ export default class TransactionService {
     return await Transaction.create(
       {
         sender: sender.id,
-        receiver: receiverAddress,
+        receiver: receiver.id,
+        sentToken: token!.id,
+        receivedToken: token!.id,
         sentAmount: amountInSmallestUnit.toString(),
-        status: 'INIT',
-        transferType: 'NATIVE_TO_NATIVE',
+        receivedAmount: amountInSmallestUnit.toString(),
+        status: TRANSACTION_STATUS.INIT,
+        transferType: TRANSFER_TYPE.NATIVE_TO_NATIVE,
       },
       { transaction: opts?.dbTransaction },
     );
@@ -575,7 +527,7 @@ export default class TransactionService {
 
   private async createCryptoToFiatTransfer(params: {
     sender: Account;
-    receiverAddress: string;
+    receiver: Account;
     sentTokenAddress: string;
     sentAmount: number;
     receivedAmount: number;
@@ -584,7 +536,7 @@ export default class TransactionService {
   }) {
     const {
       sender,
-      receiverAddress,
+      receiver,
       sentTokenAddress,
       sentAmount,
       receivedAmount,
@@ -594,8 +546,14 @@ export default class TransactionService {
     const sentToken = await Token.findOne({
       where: { address: sentTokenAddress },
     });
-
+    const receivedToken = await Token.findOne({
+      where: { address: fiatTokenAddress },
+    });
     notNull(new BadRequestError('Unknown sent token'), sentToken);
+    notNull(
+      new InternalServerError('fiat token has not been set'),
+      receivedToken,
+    );
 
     const { tokenAmount: expectedSentAmount } =
       await this.exchangeService.getTokenAmount(receivedAmount);
@@ -623,17 +581,18 @@ export default class TransactionService {
 
     const receivedAmountInSmallestUnit = convertToSmallestUnit(
       receivedAmount,
-      2,
-    ); //IDRT decimals precision is 2
+      receivedToken!.decimals,
+    );
     return await Transaction.create(
       {
         sender: sender.id,
-        receiver: receiverAddress,
-        sentToken: sentToken?.id,
+        receiver: receiver.id,
+        sentToken: sentToken!.id,
+        receivedToken: receivedToken!.id,
         sentAmount: sentAmountInSmallestUnit.toString(),
         receivedAmount: receivedAmountInSmallestUnit.toString(),
-        status: 'INIT',
-        transferType: 'CRYPTO_TO_FIAT',
+        status: TRANSACTION_STATUS.INIT,
+        transferType: TRANSFER_TYPE.CRYPTO_TO_FIAT,
       },
       { transaction: opts?.dbTransaction },
     );
@@ -641,32 +600,52 @@ export default class TransactionService {
 
   private async createNativeToFiatTransfer(params: {
     sender: Account;
-    receiverAddress: string;
+    receiver: Account;
     sentAmount: number;
     receivedAmount: number;
     transferType: TRANSFER_TYPE;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const { sender, receiverAddress, sentAmount, receivedAmount, opts } =
-      params;
+    const { sender, receiver, sentAmount, receivedAmount, opts } = params;
 
-    const amountInSmallestUnit = convertToSmallestUnit(sentAmount, 18);
+    const sentToken = await Token.findOne({
+      where: { address: nativeTokenAddress },
+    });
+    const receivedToken = await Token.findOne({
+      where: { address: fiatTokenAddress },
+    });
+    notNull(
+      new InternalServerError('native token has not been set'),
+      sentToken,
+    );
+    notNull(
+      new InternalServerError('fiat token has not been set'),
+      receivedToken,
+    );
+    const sentAmountInSmallestUnit = convertToSmallestUnit(
+      sentAmount,
+      sentToken!.decimals,
+    );
     const nativeTokenBalance = await provider.getBalance(
       sender.accountAbstractionAddress,
     );
     mustBeTrue(
       new BadRequestError('Insufficient balance'),
-      amountInSmallestUnit.lte(nativeTokenBalance.toString()),
+      sentAmountInSmallestUnit.lte(nativeTokenBalance.toString()),
     );
-
     return await Transaction.create(
       {
         sender: sender.id,
-        receiver: receiverAddress,
-        sentAmount: amountInSmallestUnit.toString(),
-        receivedAmount: convertToSmallestUnit(receivedAmount, 2).toString(),
-        status: 'INIT',
-        transferType: 'NATIVE_TO_FIAT',
+        receiver: receiver.id,
+        sentToken: sentToken!.id,
+        receivedToken: receivedToken!.id,
+        sentAmount: sentAmountInSmallestUnit.toString(),
+        receivedAmount: convertToSmallestUnit(
+          receivedAmount,
+          receivedToken!.decimals,
+        ).toString(),
+        status: TRANSACTION_STATUS.INIT,
+        transferType: TRANSFER_TYPE.NATIVE_TO_FIAT,
       },
       { transaction: opts?.dbTransaction },
     );
@@ -678,84 +657,157 @@ export default class TransactionService {
   ) {
     const steps: TransactionStep[] = [];
 
-    steps.push(await this.createCryptoTransferStep(transaction, dbTransaction));
-    if (
-      transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
-      transaction.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT
-    ) {
-      steps.push(
-        await this.createExchangeToFiatStep(transaction, dbTransaction),
-      );
+    switch (transaction.type) {
+      case TRANSACTION_TYPE.TRANSFER:
+        {
+          steps.push(
+            await this.createAAChainTransactionStep(transaction, dbTransaction),
+          );
+          if (
+            transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
+            transaction.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT
+          ) {
+            steps.push(
+              await this.createWalletTransferStep(transaction, dbTransaction),
+            );
+          }
+        }
+        break;
+      case TRANSACTION_TYPE.BUY_TOKEN:
+        {
+          steps.push(
+            await this.createWalletPaymentStep(transaction, dbTransaction),
+          );
+          steps.push(
+            await this.createEOAChainTransactionStep(
+              transaction,
+              dbTransaction,
+            ),
+          );
+        }
+        break;
+      default:
+        throw new InternalServerError(
+          'Failed to create transaction steps, unknown transfer type',
+        );
     }
 
     return steps;
   }
 
-  private async createCryptoTransferStep(
+  private async createAAChainTransactionStep(
     transaction: Transaction,
     dbTransaction: DBTransaction,
   ) {
     const {
       senderAccount,
-      receiver,
+      receiverAccount,
       sentTokenDetails,
       sentAmount: tokenAmount,
     } = transaction;
     notNull(new BadRequestError('senderAccount is required'), senderAccount);
     notNull(new BadRequestError('sentAmount is required'), tokenAmount);
 
-    let senderAddress;
-    let receiverAddress;
+    let sender;
+    let receiver;
     if (
       transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
       transaction.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT
     ) {
-      senderAddress = senderAccount!.accountAbstractionAddress;
-      receiverAddress = langitAdmin.address;
+      sender = senderAccount!.accountAbstractionAddress;
+      receiver = langitAdmin.address;
     } else {
-      senderAddress = senderAccount!.accountAbstractionAddress;
-      receiverAddress = receiver;
+      sender = senderAccount!.accountAbstractionAddress;
+      receiver = receiverAccount!.address;
     }
 
     return await TransactionStep.create(
       {
         id: uuid(),
         transactionId: transaction.id,
-        type: 'CHAIN_TRANSACTION',
-        status: 'INIT',
+        type: TRANSACTION_STEP_TYPE.AA_CHAIN_TRANSACTION,
+        status: TRANSACTION_STEP_STATUS.INIT,
         priority: 0,
-        senderAddress,
-        receiverAddress,
-        tokenAddress: sentTokenDetails?.address,
+        sender,
+        receiver,
+        tokenAddress: sentTokenDetails!.address,
         tokenAmount,
       },
       { transaction: dbTransaction },
     );
   }
 
-  private async createExchangeToFiatStep(
+  private async createWalletTransferStep(
     transaction: Transaction,
     dbTransaction: DBTransaction,
   ) {
-    const {
-      sentTokenDetails,
-      sentAmount: tokenAmount,
-      receivedAmount: fiatAmount,
-    } = transaction;
-    notNull(new BadRequestError('tokenAmount is required'), tokenAmount);
+    const { receiverAccount, receivedAmount: fiatAmount } = transaction;
     notNull(new BadRequestError('recievedAmount is required'), fiatAmount);
 
     return await TransactionStep.create(
       {
         id: uuid(),
         transactionId: transaction.id,
-        type: 'EXCHANGE_TO_FIAT',
-        status: 'INIT',
+        type: TRANSACTION_STEP_TYPE.WALLET_TRANSFER,
+        status: TRANSACTION_STATUS.INIT,
         priority: 1,
-        tokenAddress: sentTokenDetails?.address,
-        tokenAmount,
+        sender: ENVIRONMENT.PULLING_ACCOUNT_ID,
+        receiver: receiverAccount!.fiatWalletId!,
         fiatAmount,
         receiverAddress: transaction.receiver,
+      },
+      { transaction: dbTransaction },
+    );
+  }
+
+  private async createWalletPaymentStep(
+    transaction: Transaction,
+    dbTransaction: DBTransaction,
+  ) {
+    const { senderAccount, sentAmount: fiatAmount } = transaction;
+    notNull(new BadRequestError('recievedAmount is required'), fiatAmount);
+
+    return await TransactionStep.create(
+      {
+        id: uuid(),
+        transactionId: transaction.id,
+        type: TRANSACTION_STEP_TYPE.WALLET_PAYMENT,
+        status: TRANSACTION_STATUS.INIT,
+        priority: 0,
+        sender: senderAccount!.fiatWalletId!,
+        receiver: ENVIRONMENT.PULLING_ACCOUNT_ID,
+        fiatAmount,
+      },
+      { transaction: dbTransaction },
+    );
+  }
+
+  private async createEOAChainTransactionStep(
+    transaction: Transaction,
+    dbTransaction: DBTransaction,
+  ) {
+    const {
+      receiverAccount,
+      receivedTokenDetails,
+      receivedAmount: tokenAmount,
+    } = transaction;
+    notNull(
+      new BadRequestError('receiverAccount is required'),
+      receiverAccount,
+    );
+    notNull(new BadRequestError('receivedAmount is required'), tokenAmount);
+
+    return await TransactionStep.create(
+      {
+        id: uuid(),
+        transactionId: transaction.id,
+        type: TRANSACTION_STEP_TYPE.EOA_CHAIN_TRANSACTION,
+        status: TRANSACTION_STEP_STATUS.INIT,
+        priority: 1,
+        sender: langitAdmin.address,
+        receiver: receiverAccount!.accountAbstractionAddress,
+        tokenAddress: receivedTokenDetails!.address!,
+        tokenAmount,
       },
       { transaction: dbTransaction },
     );
@@ -768,35 +820,67 @@ export default class TransactionService {
   ) {
     let externalId;
     switch (transactionStep.type) {
-      case 'CHAIN_TRANSACTION':
+      case TRANSACTION_STEP_TYPE.AA_CHAIN_TRANSACTION:
         {
           mustBeTrue(
             new BadRequestError(
               'privateKey is required for this transaction step',
             ),
-            transactionStep.type === 'CHAIN_TRANSACTION' && privateKey != null,
+            privateKey != null,
           );
-          externalId = await this.chainTransactionService.transferToken(
+          externalId = await this.chainTransactionService.aaTransfer(
             transactionStep,
             privateKey!,
             { dbTransaction },
           );
         }
         break;
-      case 'ADMIN_CHAIN_TRANSACTION':
+      case TRANSACTION_STEP_TYPE.EOA_CHAIN_TRANSACTION:
         {
-          externalId = await this.chainTransactionService.adminTransferToken(
+          externalId = await this.chainTransactionService.eoaTransfer(
             transactionStep,
             { dbTransaction },
           );
         }
         break;
-      case 'EXCHANGE_TO_FIAT':
+      case TRANSACTION_STEP_TYPE.WALLET_TRANSFER:
         {
-          const amount = convertToBiggestUnit(transactionStep.fiatAmount!, 2);
+          const fiatToken = await Token.findOne({
+            where: { address: fiatTokenAddress },
+          });
           externalId = await this.walletService.transfer(
-            transactionStep.receiverAddress!,
-            amount,
+            transactionStep.receiver!,
+            convertToBiggestUnit(
+              transactionStep.fiatAmount!,
+              fiatToken!.decimals,
+            ),
+          );
+        }
+        break;
+      case TRANSACTION_STEP_TYPE.WALLET_PAYMENT:
+        {
+          const account = await Account.findOne({
+            where: { fiatWalletId: transactionStep.sender! },
+          });
+          const fiatToken = await Token.findOne({
+            where: { address: fiatTokenAddress },
+          });
+          const { TransactionId, PaymentNo: paymentCode } =
+            await this.walletService.createPayment({
+              referenceId: transactionStep.transactionId,
+              email: account!.email,
+              amount: convertToBiggestUnit(
+                transactionStep.fiatAmount!,
+                fiatToken!.decimals,
+              ),
+            });
+          externalId = TransactionId;
+          await Transaction.update(
+            { paymentCode },
+            {
+              where: { id: transactionStep.transactionId },
+              transaction: dbTransaction,
+            },
           );
         }
         break;
@@ -807,12 +891,12 @@ export default class TransactionService {
     await transactionStep.update(
       {
         externalId,
-        status: 'PROCESSING',
+        status: TRANSACTION_STEP_STATUS.PROCESSING,
       },
       { transaction: dbTransaction },
     );
 
-    if (transactionStep.type === 'EXCHANGE_TO_FIAT') {
+    if (transactionStep.type === TRANSACTION_STEP_TYPE.WALLET_TRANSFER) {
       await this.finalizeTransactionStep(externalId, 'SUCCESS', undefined, {
         dbTransaction,
       });
@@ -869,7 +953,10 @@ export default class TransactionService {
         ),
         transaction,
       );
-      transaction!.status = status === 'SUCCESS' ? 'SENT' : 'FAILED';
+      transaction!.status =
+        status === 'SUCCESS'
+          ? TRANSACTION_STATUS.SENT
+          : TRANSACTION_STATUS.FAILED;
       await transaction!.update(
         { status: transaction!.status },
         {
@@ -877,7 +964,7 @@ export default class TransactionService {
         },
       );
       if (
-        transaction!.status === 'SUCCESS' &&
+        transaction!.status === TRANSACTION_STATUS.SENT &&
         (transaction!.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
           transaction!.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT)
       ) {
@@ -890,8 +977,14 @@ export default class TransactionService {
         console.error(
           `transaction with id: ${step?.transactionId} failed when executing steps: ${steps[0].id}, error: ${err.message}`,
         );
-        // Currently only crypto / native transaction step that need to be reverted.
-        await this.revertTransactionStep(step!, opts?.dbTransaction!);
+        const transaction = await Transaction.findByPk(step!.transactionId);
+        if (
+          transaction!.type === TRANSACTION_TYPE.TRANSFER &&
+          transaction!.transferType.includes('TO_NATIVE')
+        ) {
+          // Currently only crypto / native transaction step that need to be reverted.
+          await this.revertTransactionStep(step!, opts?.dbTransaction!);
+        }
         await steps[0].update(
           {
             status: 'FAILED',
@@ -916,20 +1009,23 @@ export default class TransactionService {
     dbTransaction: DBTransaction,
   ) {
     let callData: string | null = null;
-    if (step.tokenAddress) {
+    if (step.tokenAddress !== nativeTokenAddress) {
       const token = new ethers.Contract(
-        step.tokenAddress,
+        step.tokenAddress!,
         SimpleToken.abi,
         provider,
       );
       callData = token.interface.encodeFunctionData('transfer', [
-        step.senderAddress,
+        step.sender,
         step.tokenAmount,
       ]);
     }
     await langitAdmin.connect(provider).sendTransaction({
-      to: step.tokenAddress ?? step.senderAddress!,
-      value: step.tokenAddress ? '0' : step.tokenAmount,
+      to:
+        step.tokenAddress !== nativeTokenAddress
+          ? step.tokenAddress!
+          : step.sender!,
+      value: step.tokenAddress !== nativeTokenAddress ? '0' : step.tokenAmount!,
       data: callData ?? '',
     });
 
@@ -1001,6 +1097,10 @@ export default class TransactionService {
           as: 'senderAccount',
         },
         {
+          model: Account,
+          as: 'receiverAccount',
+        },
+        {
           model: Token,
           as: 'sentTokenDetails',
         },
@@ -1033,17 +1133,21 @@ export default class TransactionService {
       }
 
       return {
-        receiver:
-          transaction.type === 'BUY_TOKEN' ? undefined : transaction.receiver,
+        receiver: transaction.receiverAccount!.accountAbstractionAddress,
         type: transaction.type,
         transferType: transaction.transferType,
         token,
         amount: convertToBiggestUnit(
           transaction.sentAmount,
-          (transaction.type === 'TRANSFER'
-            ? transaction.sentTokenDetails?.decimals
-            : 2) ?? 18,
+          transaction.sentTokenDetails!.decimals,
         ),
+        fiat_amount:
+          transaction.receivedTokenDetails!.address === fiatTokenAddress
+            ? convertToBiggestUnit(
+                transaction.receivedAmount!,
+                transaction.receivedTokenDetails!.decimals,
+              )
+            : null,
         status: transaction.status,
         createdAt: transaction.createdAt,
         updatedAt: transaction.updatedAt,
@@ -1065,18 +1169,13 @@ export default class TransactionService {
     const offset = opts?.offset ?? 0;
     const limit = opts?.limit ?? 15;
 
-    const account = await Account.findByPk(accountId);
     const transactions = await Transaction.findAll({
       where: {
         [Op.or]: [
           {
+            receiver: accountId,
             type: 'TRANSFER',
-            [Op.or]: [
-              { receiver: account?.accountAbstractionAddress },
-              { receiver: account?.fiatWalletId },
-              { status: 'SENT' },
-              { status: 'FAILED' },
-            ],
+            [Op.or]: [{ status: 'SENT' }, { status: 'FAILED' }],
           },
           {
             receiver: accountId,
@@ -1095,6 +1194,10 @@ export default class TransactionService {
         {
           model: Account,
           as: 'senderAccount',
+        },
+        {
+          model: Account,
+          as: 'receiverAccount',
         },
         {
           model: Token,
@@ -1129,21 +1232,21 @@ export default class TransactionService {
       }
 
       return {
-        sender:
-          transaction.type === 'BUY_TOKEN'
-            ? undefined
-            : transaction.senderAccount?.accountAbstractionAddress,
+        sender: transaction.senderAccount?.accountAbstractionAddress,
         type: transaction.type,
         transferType: transaction.transferType,
         token,
         amount: convertToBiggestUnit(
           transaction.sentAmount,
-          token.name === 'x0'
-            ? 19
-            : token.name === 'IDR'
-              ? 2
-              : transaction.sentTokenDetails!.decimals,
+          transaction.sentTokenDetails!.decimals,
         ),
+        fiat_amount:
+          transaction.receivedTokenDetails!.address === fiatTokenAddress
+            ? convertToBiggestUnit(
+                transaction.receivedAmount!,
+                transaction.receivedTokenDetails!.decimals,
+              )
+            : null,
         status: transaction.status,
         createdAt: transaction.createdAt,
         updatedAt: transaction.updatedAt,

@@ -10,8 +10,9 @@ module.exports = {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
       },
-      user_operation_hash: {
+      hash: {
         type: Sequelize.STRING,
+        allowNull: true,
         unique: true,
       },
       signature: {
@@ -20,7 +21,7 @@ module.exports = {
         unique: true,
       },
       action_type: {
-        type: Sequelize.ENUM('DEPLOY_AA', 'TRANSFER_TOKEN'),
+        type: Sequelize.ENUM('DEPLOY_AA', 'AA_TRANSFER', 'EOA_TRANSFER'),
       },
       status: {
         type: Sequelize.ENUM('INIT', 'SUBMITTED', 'CONFIRMED', 'FAILED'),
