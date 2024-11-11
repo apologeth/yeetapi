@@ -50,4 +50,26 @@ export default class ProductService {
 
     return responseFromPPOB.data.data.pricelist;
   }
+
+  async getBalance(): Promise<number> {
+    const username = ENVIRONMENT.PPOB_USERNAME!;
+    const apiKey = ENVIRONMENT.PPOB_API_KEY!;
+
+    const responseFromPPOB = await axios.post(
+      `${ENVIRONMENT.PPOB_BASE_URL}checkbalance`,
+      {
+        username,
+        sign: md5(username + apiKey + 'bl'),
+      },
+    );
+
+    if (
+      responseFromPPOB.status != 200 ||
+      !responseFromPPOB.data.data.balance
+    ) {
+      throw new InternalServerError(`Failed to fetch Third Party`);
+    }
+
+    return responseFromPPOB.data.data.balance;
+  }
 }

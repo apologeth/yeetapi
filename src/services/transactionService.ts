@@ -34,16 +34,19 @@ import { sequelize } from '../config/database';
 import { Op } from 'sequelize';
 import { fiatTokenAddress, nativeTokenAddress } from '../utils/const';
 import ENVIRONMENT from '../config/environment';
+import ProductService from './productService';
 
 export default class TransactionService {
   private chainTransactionService: ChainTransactionService;
   private exchangeService: ExchangeService;
   private walletService: WalletService;
+  private productService: ProductService;
 
   constructor() {
     this.chainTransactionService = new ChainTransactionService();
     this.exchangeService = new ExchangeService();
     this.walletService = new WalletService();
+    this.productService = new ProductService();
   }
 
   async fetch(transactionId: string) {
@@ -170,6 +173,31 @@ export default class TransactionService {
         return this.buyToken({
           ...params,
           receiverAddress: params.receiverAddress!,
+          receivedAmount: params.receivedAmount!,
+        });
+      case 'BUY_PRODUCT':
+        notNull(
+          new BadRequestError('sender_address is required'),
+          params.senderAddress,
+        );
+        notNull(
+          new BadRequestError('shard_device is required'),
+          params.shardDevice,
+        );
+        notNull(
+          new BadRequestError('sent_amount is required'),
+          params.sentAmount,
+        );
+        notNull(
+          new BadRequestError('received_amount is required'),
+          params.receivedAmount,
+        );
+
+        return this.buyProduct({
+          ...params,
+          shardDevice: params.shardDevice!,
+          senderAddress: params.senderAddress!,
+          sentAmount: params.sentAmount!,
           receivedAmount: params.receivedAmount!,
         });
       default:
@@ -367,6 +395,119 @@ export default class TransactionService {
       opts.dbTransaction,
     );
     await this.executeTransactionStep(steps[0], opts.dbTransaction);
+
+    return transaction;
+  }
+
+  private async buyProduct(params: {
+    senderAddress: string;
+    shardDevice: string;
+    sentAmount: number;
+    receivedAmount: number;
+    sentTokenAddress?: string;
+    opts: { dbTransaction: DBTransaction };
+  }) {
+    const { senderAddress, shardDevice, sentAmount, sentTokenAddress, receivedAmount, opts } = params;
+
+    const sender = await Account.findOne({
+      where: { accountAbstractionAddress: senderAddress },
+    });
+    if (!sender) {
+      throw new NotFoundError('Unknown sender');
+    }
+
+    const privateKey = await recoverPrivateKey(
+      sender.encryptedShard!,
+      shardDevice,
+    );
+    const wallet = new ethers.Wallet(privateKey);
+    mustBeTrue(
+      new BadRequestError('key not match'),
+      sender!.address === wallet.address,
+    );
+
+    const { tokenAmount: expectedSentAmount } =
+      await this.exchangeService.getTokenAmount(receivedAmount);
+    mustBeTrue(
+      new BadRequestError('sent token amount is too low'),
+      sentAmount >= expectedSentAmount,
+    );
+
+    const sentToken = await Token.findOne({ where: { address: sentTokenAddress ?? nativeTokenAddress }});
+    const sentAmountInSmallestUnit = convertToSmallestUnit(
+      sentAmount,
+      sentToken!.decimals,
+    );
+    let senderAccountBalance;
+    if (sentTokenAddress !== nativeTokenAddress) {
+      const sentTokenContract = new ethers.Contract(
+        sentToken!.address,
+        SimpleToken.abi,
+        provider,
+      );
+      senderAccountBalance = await sentTokenContract.balanceOf(
+        sender.accountAbstractionAddress,
+      );
+    } else {
+      senderAccountBalance = await provider.getBalance(sender.accountAbstractionAddress);
+    }
+    mustBeTrue(
+      new BadRequestError('Insufficient balance'),
+      sentAmountInSmallestUnit.lte(senderAccountBalance.toString()),
+    );
+
+    const receivedToken = await Token.findOne({ where: { address: fiatTokenAddress }});
+    const receivedAmountInSmallestUnit = convertToSmallestUnit(
+      receivedAmount,
+      receivedToken!.decimals,
+    );
+    const adminBalance = await this.productService.getBalance();
+    mustBeTrue(
+      new BadRequestError('Insufficient admin balance'),
+      receivedAmountInSmallestUnit.lte(convertToSmallestUnit(adminBalance, receivedToken!.decimals)),
+    );
+
+    const { id: transactionId } = await Transaction.create(
+      {
+        sender: sender.id,
+        receiver: sender.id,
+        sentToken: sentToken!.id,
+        receivedToken: receivedToken!.id,
+        sentAmount: sentAmountInSmallestUnit.toString(),
+        receivedAmount: receivedAmountInSmallestUnit.toString(),
+        status: TRANSACTION_STATUS.INIT,
+        type: TRANSACTION_TYPE.BUY_PRODUCT,
+      },
+      { transaction: opts?.dbTransaction },
+    );
+
+    const transaction = (await Transaction.findByPk(transactionId, {
+      include: [
+        {
+          model: Account,
+          as: 'senderAccount',
+        },
+        {
+          model: Account,
+          as: 'receiverAccount',
+        },
+        {
+          model: Token,
+          as: 'sentTokenDetails',
+        },
+        {
+          model: Token,
+          as: 'receivedTokenDetails',
+        },
+      ],
+      transaction: opts.dbTransaction,
+    }))!;
+    const steps = await this.createTransactionSteps(
+      transaction,
+      opts.dbTransaction,
+    );
+
+    await this.executeTransactionStep(steps[0], opts.dbTransaction, privateKey);
 
     return transaction;
   }

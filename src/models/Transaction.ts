@@ -13,6 +13,7 @@ export enum TRANSFER_TYPE {
 
 export enum TRANSACTION_TYPE {
   BUY_TOKEN = 'BUY_TOKEN',
+  BUY_PRODUCT = 'BUY_PRODUCT',
   TRANSFER = 'TRANSFER',
 }
 
