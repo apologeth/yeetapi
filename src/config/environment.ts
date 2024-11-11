@@ -51,6 +51,10 @@ const ENVIRONMENT = {
   EXTERNAL_WALLET_BASE_URL: process.env.EXTERNAL_WALLET_BASE_URL,
 
   CALLBACK_URL: process.env.CALLBACK_URL,
+
+  PPOB_USERNAME: process.env.PPOB_USERNAME,
+  PPOB_API_KEY: process.env.PPOB_API_KEY,
+  PPOB_BASE_URL: process.env.PPOB_BASE_URL,
 };
 
 export default ENVIRONMENT;
