@@ -35,6 +35,8 @@ export default class TransactionController {
           sentTokenAddress,
           receivedTokenAddress,
           transferType,
+          productCode,
+          customerId,
           type,
         } = snakeToCamel(request.body);
         notNull(new BadRequestError('type is required'), type);
@@ -48,6 +50,8 @@ export default class TransactionController {
           sentTokenAddress,
           receivedTokenAddress,
           transferType,
+          productCode,
+          customerId,
           type,
           opts: { dbTransaction: dbTransaction! },
         });
