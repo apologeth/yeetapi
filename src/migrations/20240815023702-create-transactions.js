@@ -43,6 +43,14 @@ module.exports = {
         unique: true,
         allowNull: true,
       },
+      product_code: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      customer_id: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
       type: {
         type: Sequelize.ENUM(
           'BUY_TOKEN',

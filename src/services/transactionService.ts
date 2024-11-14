@@ -130,6 +130,8 @@ export default class TransactionService {
     receivedAmount?: number;
     sentTokenAddress?: string;
     receivedTokenAddress?: string;
+    productCode?: string;
+    customerId?: string;
     type: TRANSACTION_TYPE;
     transferType: TRANSFER_TYPE;
     opts: { dbTransaction: DBTransaction };
@@ -185,20 +187,20 @@ export default class TransactionService {
           params.shardDevice,
         );
         notNull(
-          new BadRequestError('sent_amount is required'),
-          params.sentAmount,
+          new BadRequestError('product_code is required'),
+          params.productCode,
         );
         notNull(
-          new BadRequestError('received_amount is required'),
-          params.receivedAmount,
+          new BadRequestError('customer_id is required'),
+          params.customerId,
         );
 
         return this.buyProduct({
           ...params,
           shardDevice: params.shardDevice!,
           senderAddress: params.senderAddress!,
-          sentAmount: params.sentAmount!,
-          receivedAmount: params.receivedAmount!,
+          productCode: params.productCode!,
+          customerId: params.customerId!,
         });
       default:
         throw new BadRequestError('unknown transaction type');
@@ -402,12 +404,12 @@ export default class TransactionService {
   private async buyProduct(params: {
     senderAddress: string;
     shardDevice: string;
-    sentAmount: number;
-    receivedAmount: number;
+    productCode: string;
+    customerId: string;
     sentTokenAddress?: string;
     opts: { dbTransaction: DBTransaction };
   }) {
-    const { senderAddress, shardDevice, sentAmount, sentTokenAddress, receivedAmount, opts } = params;
+    const { senderAddress, shardDevice, productCode, customerId, sentTokenAddress, opts } = params;
 
     const sender = await Account.findOne({
       where: { accountAbstractionAddress: senderAddress },
@@ -426,12 +428,11 @@ export default class TransactionService {
       sender!.address === wallet.address,
     );
 
-    const { tokenAmount: expectedSentAmount } =
+    const product = this.productService.getProductByProductCode(productCode);
+    notNull(new NotFoundError('unknown product code'), product);
+    const receivedAmount = product!.product_price;
+    const { tokenAmount: sentAmount } =
       await this.exchangeService.getTokenAmount(receivedAmount);
-    mustBeTrue(
-      new BadRequestError('sent token amount is too low'),
-      sentAmount >= expectedSentAmount,
-    );
 
     const sentToken = await Token.findOne({ where: { address: sentTokenAddress ?? nativeTokenAddress }});
     const sentAmountInSmallestUnit = convertToSmallestUnit(
@@ -477,6 +478,8 @@ export default class TransactionService {
         receivedAmount: receivedAmountInSmallestUnit.toString(),
         status: TRANSACTION_STATUS.INIT,
         type: TRANSACTION_TYPE.BUY_PRODUCT,
+        productCode,
+        customerId,
       },
       { transaction: opts?.dbTransaction },
     );
@@ -827,6 +830,19 @@ export default class TransactionService {
           );
         }
         break;
+      case TRANSACTION_TYPE.BUY_PRODUCT:
+        {
+          steps.push(
+            await this.createAAChainTransactionStep(transaction, dbTransaction),
+          );
+          steps.push(
+            await this.createProductTopUp(
+              transaction,
+              dbTransaction,
+            ),
+          );
+        }
+        break;
       default:
         throw new InternalServerError(
           'Failed to create transaction steps, unknown transfer type',
@@ -852,6 +868,7 @@ export default class TransactionService {
     let sender;
     let receiver;
     if (
+      transaction.type === TRANSACTION_TYPE.BUY_PRODUCT ||
       transaction.transferType === TRANSFER_TYPE.CRYPTO_TO_FIAT ||
       transaction.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT
     ) {
@@ -954,6 +971,27 @@ export default class TransactionService {
     );
   }
 
+  private async createProductTopUp(
+    transaction: Transaction,
+    dbTransaction: DBTransaction,
+  ) {
+    const { senderAccount, sentAmount: fiatAmount } = transaction;
+    notNull(new BadRequestError('recievedAmount is required'), fiatAmount);
+
+    return await TransactionStep.create(
+      {
+        id: uuid(),
+        transactionId: transaction.id,
+        type: TRANSACTION_STEP_TYPE.PRODUCT_TOPUP,
+        status: TRANSACTION_STATUS.INIT,
+        priority: 0,
+        receiver: transaction.customerId,
+        fiatAmount,
+      },
+      { transaction: dbTransaction },
+    );
+  }
+
   private async executeTransactionStep(
     transactionStep: TransactionStep,
     dbTransaction: DBTransaction,
@@ -1023,6 +1061,13 @@ export default class TransactionService {
               transaction: dbTransaction,
             },
           );
+        }
+        break;
+      case TRANSACTION_STEP_TYPE.PRODUCT_TOPUP:
+        {
+          const transaction = await Transaction.findByPk(transactionStep.transactionId);
+          externalId  =
+            await this.productService.topup(transaction!.productCode!, transaction!.customerId!, transaction!.id);
         }
         break;
       default:

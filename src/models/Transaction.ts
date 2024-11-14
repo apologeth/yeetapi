@@ -38,6 +38,8 @@ class Transaction extends Model {
   public receivedTokenDetails!: Token | undefined | null;
   public transactionHash!: string | undefined | null;
   public paymentCode!: string | undefined | null;
+  public productCode!: string | undefined | null;
+  public customerId!: string | undefined | null;
   public type!: TRANSACTION_TYPE;
   public transferType!: TRANSFER_TYPE;
   public status!: TRANSACTION_STATUS;
@@ -89,6 +91,14 @@ Transaction.init(
     paymentCode: {
       type: DataTypes.STRING,
       unique: true,
+      allowNull: true,
+    },
+    productCode: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    customerId: {
+      type: DataTypes.STRING,
       allowNull: true,
     },
     type: {
