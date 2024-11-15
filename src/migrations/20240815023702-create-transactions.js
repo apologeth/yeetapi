@@ -68,7 +68,7 @@ module.exports = {
           'NATIVE_TO_FIAT',
           'FIAT_TO_CRYPTO',
         ),
-        allowNull: false,
+        allowNull: true,
       },
       status: {
         type: Sequelize.ENUM('INIT', 'SENDING', 'SENT', 'FAILED'),
