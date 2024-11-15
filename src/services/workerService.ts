@@ -115,6 +115,7 @@ export default class WorkerService {
         case 'DEPLOY_AA':
           await this.updateAccountStatus(chainTransaction, dbTransaction);
           break;
+        case 'EOA_TRANSFER':
         case 'AA_TRANSFER':
           await this.updateTransactionStepStatus(
             chainTransaction,
