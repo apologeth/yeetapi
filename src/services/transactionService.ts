@@ -339,7 +339,7 @@ export default class TransactionService {
       token!.decimals!,
     );
     const adminBalance =
-      receivedTokenAddress !== nativeTokenAddress
+      !receivedTokenAddress || receivedTokenAddress !== nativeTokenAddress
         ? await new ethers.Contract(
             receivedTokenAddress!,
             SimpleToken.abi,
@@ -876,7 +876,7 @@ export default class TransactionService {
       receiver = langitAdmin.address;
     } else {
       sender = senderAccount!.accountAbstractionAddress;
-      receiver = receiverAccount!.address;
+      receiver = receiverAccount!.accountAbstractionAddress;
     }
 
     return await TransactionStep.create(
