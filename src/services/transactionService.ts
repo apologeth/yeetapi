@@ -1048,10 +1048,10 @@ export default class TransactionService {
             await this.walletService.createPayment({
               referenceId: transactionStep.transactionId,
               email: account!.email,
-              amount: convertToBiggestUnit(
+              amount: Number(convertToBiggestUnit(
                 transactionStep.fiatAmount!,
                 fiatToken!.decimals,
-              ),
+              ).toFixed(0)),
             });
           externalId = TransactionId;
           await Transaction.update(
