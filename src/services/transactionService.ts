@@ -1029,10 +1029,10 @@ export default class TransactionService {
           });
           externalId = await this.walletService.transfer(
             transactionStep.receiver!,
-            convertToBiggestUnit(
+            Number(convertToBiggestUnit(
               transactionStep.fiatAmount!,
               fiatToken!.decimals,
-            ),
+            ).toFixed(0)),
           );
         }
         break;
