@@ -339,7 +339,7 @@ export default class TransactionService {
       token!.decimals!,
     );
     const adminBalance =
-      !receivedTokenAddress || receivedTokenAddress !== nativeTokenAddress
+      receivedTokenAddress && receivedTokenAddress !== nativeTokenAddress
         ? await new ethers.Contract(
             receivedTokenAddress!,
             SimpleToken.abi,
