@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "LangitAccountFactory",
-  "sourceName": "contracts/LangitAccountFactory.sol",
+  "contractName": "StraxAccountFactory",
+  "sourceName": "contracts/StraxAccountFactory.sol",
   "abi": [
     {
       "inputs": [

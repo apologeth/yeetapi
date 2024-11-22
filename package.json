@@ -1,5 +1,5 @@
 {
-  "name": "langitapi",
+  "name": "straxapi",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "start:ganache": "ganache --mnemonic 'test test test test test test test test test test test junk' --db ./ganache-db",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",
-    "migrate": "PGDATABASE=langit ./scripts/ensure-db-exists.sh && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all",
+    "migrate": "PGDATABASE=strax ./scripts/ensure-db-exists.sh && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all",
     "start": "nodemon --exec ts-node src/app.ts",
     "build": "tsc"
   },

@@ -39,8 +39,8 @@ export default class AccountService {
     opts: { dbTransaction: DBTransaction };
   }) {
     const { email, password, fiatWalletId, opts } = params;
-    const { langitAccountFactory } = await getContracts();
-    const registeredEmail = await langitAccountFactory.accountOfEmail(email);
+    const { straxAccountFactory } = await getContracts();
+    const registeredEmail = await straxAccountFactory.accountOfEmail(email);
     mustBeTrue(
       new ConflictError(`email: ${email} is already registered`),
       registeredEmail === zeroAddress,

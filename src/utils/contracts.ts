@@ -1,12 +1,12 @@
 import { Contract, ethers } from 'ethers';
 import ENVIRONMENT from '../config/environment';
 import EntryPoint from '../contracts/EntryPoint.json';
-import LangitAccountFactory from '../contracts/LangitAccountFactory.json';
-import LangitPaymaster from '../contracts/LangitPaymaster.json';
+import StraxAccountFactory from '../contracts/StraxAccountFactory.json';
+import StraxPaymaster from '../contracts/StraxPaymaster.json';
 
 let entrypoint: Contract;
-let langitAccountFactory: Contract;
-let langitPaymaster: Contract;
+let straxAccountFactory: Contract;
+let straxPaymaster: Contract;
 
 export const provider = new ethers.providers.JsonRpcProvider(
   ENVIRONMENT.CHAIN_RPC_URL,
@@ -17,27 +17,27 @@ export const provider = new ethers.providers.JsonRpcProvider(
 );
 
 export async function getContracts() {
-  if (!entrypoint || !langitAccountFactory || !langitPaymaster) {
+  if (!entrypoint || !straxAccountFactory || !straxPaymaster) {
     entrypoint = new ethers.Contract(
       ENVIRONMENT.ENTRYPOINT_ADDRESS!,
       EntryPoint.abi,
       provider,
     );
-    langitAccountFactory = new ethers.Contract(
-      ENVIRONMENT.LANGIT_ACCOUNT_FACTORY_ADDRESS!,
-      LangitAccountFactory.abi,
+    straxAccountFactory = new ethers.Contract(
+      ENVIRONMENT.STRAX_ACCOUNT_FACTORY_ADDRESS!,
+      StraxAccountFactory.abi,
       provider,
     );
-    langitPaymaster = new ethers.Contract(
-      ENVIRONMENT.LANGIT_PAYMASTER_ADDRESS!,
-      LangitPaymaster.abi,
+    straxPaymaster = new ethers.Contract(
+      ENVIRONMENT.STRAX_PAYMASTER_ADDRESS!,
+      StraxPaymaster.abi,
       provider,
     );
   }
 
   return {
     entrypoint,
-    langitAccountFactory,
-    langitPaymaster,
+    straxAccountFactory,
+    straxPaymaster,
   };
 }

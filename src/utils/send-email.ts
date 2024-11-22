@@ -4,7 +4,7 @@ import ENVIRONMENT from '../config/environment';
 export async function sendEmail(email: string, subject: string, text: string) {
   try {
     const transporter = nodemailer.createTransport({
-      name: 'langit-wallet',
+      name: 'strax-wallet',
       host: ENVIRONMENT.SMTP_HOST ?? 'localhost',
       port: ENVIRONMENT.SMTP_PORT ?? 25,
       secure: false,

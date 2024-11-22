@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { getContracts, provider } from '../utils/contracts';
-import LangitAccount from '../contracts/LangitAccount.json';
-import { langitAdmin, setupUserOpExecute } from '../utils/user-operation';
+import StraxAccount from '../contracts/StraxAccount.json';
+import { straxAdmin, setupUserOpExecute } from '../utils/user-operation';
 import {
   CHAIN_TRANSACTION_ACTION_TYPE,
   CHAIN_TRANSACTION_STATUS,
@@ -20,15 +20,15 @@ export default class ChainTransactionService {
     opts: { dbTransaction: DBTransaction },
   ) {
     const signer = new ethers.Wallet(accountPrivateKey);
-    const { langitAccountFactory } = await getContracts();
+    const { straxAccountFactory } = await getContracts();
 
-    const initCallData = langitAccountFactory.interface.encodeFunctionData(
+    const initCallData = straxAccountFactory.interface.encodeFunctionData(
       'createAccount',
       [signer.address, '0x00'],
     );
     const factoryAddress = ethers.utils.solidityPack(
       ['address'],
-      [langitAccountFactory.address],
+      [straxAccountFactory.address],
     );
     const initCode = ethers.utils.solidityPack(
       ['bytes', 'bytes'],
@@ -36,10 +36,10 @@ export default class ChainTransactionService {
     );
 
     const accountAbstractionAddress: string =
-      await langitAccountFactory.getAddress(signer.address, '0x00');
+      await straxAccountFactory.getAddress(signer.address, '0x00');
     const Account = new ethers.ContractFactory(
-      LangitAccount.abi,
-      LangitAccount.bytecode,
+      StraxAccount.abi,
+      StraxAccount.bytecode,
     );
     const callData = Account.interface.encodeFunctionData('register', [
       email,
@@ -122,7 +122,7 @@ export default class ChainTransactionService {
     transactionStep: TransactionStep,
     opts: { dbTransaction: DBTransaction },
   ) {
-    const signer = langitAdmin;
+    const signer = straxAdmin;
     let callData;
     if (transactionStep.tokenAddress !== nativeTokenAddress) {
       const token = new ethers.Contract(

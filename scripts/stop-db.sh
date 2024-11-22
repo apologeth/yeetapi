@@ -1,2 +1,2 @@
 #! /bin/sh
-docker stop langit-db >/dev/null
+docker stop strax-db >/dev/null

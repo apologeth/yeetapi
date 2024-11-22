@@ -17,16 +17,16 @@ export async function smtpStart(opts?: Options) {
   const mailClientPort = opts?.mailClientPort ?? 5002;
   const mailClientPortMapping = `${mailClientPort}:80`;
   const smtpPortMapping = `${smtpPort}:25`;
-  await dockerCreateNetwork({ networkName: 'langit' });
+  await dockerCreateNetwork({ networkName: 'strax' });
   const containerId = await dockerRun({
     image: 'rnwood/smtp4dev:v3.1',
-    containerName: 'langit-smtp',
+    containerName: 'strax-smtp',
     dockerParams: [
       '-p',
       mailClientPortMapping,
       '-p',
       smtpPortMapping,
-      '--network=langit',
+      '--network=strax',
     ],
   });
 
@@ -37,6 +37,6 @@ export async function smtpStart(opts?: Options) {
 }
 
 export async function smtpStop() {
-  await dockerStop({ containerId: 'langit-smtp' });
-  await dockerRm({ containerId: 'langit-smtp' });
+  await dockerStop({ containerId: 'strax-smtp' });
+  await dockerRm({ containerId: 'strax-smtp' });
 }
