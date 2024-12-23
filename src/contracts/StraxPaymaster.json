@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "StraxPaymaster",
-  "sourceName": "contracts/StraxPaymaster.sol",
+  "contractName": "YeetPaymaster",
+  "sourceName": "contracts/YeetPaymaster.sol",
   "abi": [
     {
       "inputs": [

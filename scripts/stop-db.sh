@@ -1,2 +1,2 @@
 #! /bin/sh
-docker stop strax-db >/dev/null
+docker stop yeet-db >/dev/null

@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "StraxAccount",
-  "sourceName": "contracts/StraxAccount.sol",
+  "contractName": "YeetAccount",
+  "sourceName": "contracts/YeetAccount.sol",
   "abi": [
     {
       "inputs": [

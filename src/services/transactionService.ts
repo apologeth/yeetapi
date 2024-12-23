@@ -21,7 +21,7 @@ import SimpleToken from '../contracts/SimpleToken.json';
 import { provider } from '../utils/contracts';
 import { Transaction as DBTransaction } from 'sequelize';
 import ExchangeService from './exchangeService';
-import { straxAdmin } from '../utils/user-operation';
+import { yeetAdmin } from '../utils/user-operation';
 import { v4 as uuid } from 'uuid';
 import {
   convertToBiggestUnit,
@@ -344,8 +344,8 @@ export default class TransactionService {
             receivedTokenAddress!,
             SimpleToken.abi,
             provider,
-          ).balanceOf(straxAdmin.address)
-        : await provider.getBalance(straxAdmin.address);
+          ).balanceOf(yeetAdmin.address)
+        : await provider.getBalance(yeetAdmin.address);
 
     mustBeTrue(
       new BadRequestError('Insufficient admin balance'),
@@ -873,7 +873,7 @@ export default class TransactionService {
       transaction.transferType === TRANSFER_TYPE.NATIVE_TO_FIAT
     ) {
       sender = senderAccount!.accountAbstractionAddress;
-      receiver = straxAdmin.address;
+      receiver = yeetAdmin.address;
     } else {
       sender = senderAccount!.accountAbstractionAddress;
       receiver = receiverAccount!.accountAbstractionAddress;
@@ -962,7 +962,7 @@ export default class TransactionService {
         type: TRANSACTION_STEP_TYPE.EOA_CHAIN_TRANSACTION,
         status: TRANSACTION_STEP_STATUS.INIT,
         priority: 1,
-        sender: straxAdmin.address,
+        sender: yeetAdmin.address,
         receiver: receiverAccount!.accountAbstractionAddress,
         tokenAddress: receivedTokenDetails!.address!,
         tokenAmount,
@@ -1206,7 +1206,7 @@ export default class TransactionService {
         step.tokenAmount,
       ]);
     }
-    await straxAdmin.connect(provider).sendTransaction({
+    await yeetAdmin.connect(provider).sendTransaction({
       to:
         step.tokenAddress !== nativeTokenAddress
           ? step.tokenAddress!

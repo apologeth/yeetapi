@@ -1,13 +1,13 @@
 version: '3.8'
 
 services:
-  strax-db:
-    container_name: strax-db
+  yeet-db:
+    container_name: yeet-db
     image: postgres:16.3
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: strax-password
-      POSTGRES_DB: strax
+      POSTGRES_PASSWORD: yeet-password
+      POSTGRES_DB: yeet
       POSTGRES_HOST_AUTH_METHOD: md5
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
@@ -18,19 +18,19 @@ services:
       - app-network
 
   app:
-    container_name: strax-be
+    container_name: yeet-be
     build: .
     ports:
       - '3000:3000'
     depends_on:
-      - strax-db
+      - yeet-db
     environment:
       NODE_ENV: staging
       DATABASE_HOST: 172.17.0.1
       DATABASE_PORT: 5433
-      DATABASE_NAME: strax
+      DATABASE_NAME: yeet
       DATABASE_USERNAME: postgres
-      DATABASE_PASSWORD: strax-password
+      DATABASE_PASSWORD: yeet-password
     command: ['node', 'dist/src/app.js']
     # volumes:
     # - .:/usr/src/app:ro
@@ -65,7 +65,7 @@ services:
       - web-root:/var/www/html
     depends_on:
       - webserver
-    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --force-renewal -d straxapi.blockchainworks.id
+    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --force-renewal -d yeetapi.blockchainworks.id
 
 volumes:
   db-data:
@@ -75,13 +75,13 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: /home/ubuntu/StraxApi/src/views/
+      device: /home/ubuntu/YeetApi/src/views/
       o: bind
   dhparam:
     driver: local
     driver_opts:
       type: none
-      device: /home/ubuntu/StraxApi/dhparam
+      device: /home/ubuntu/YeetApi/dhparam
       o: bind
 
 networks:

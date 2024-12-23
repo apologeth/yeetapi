@@ -1,10 +1,10 @@
-import StraxAccount from '../contracts/StraxAccount.json';
+import YeetAccount from '../contracts/YeetAccount.json';
 import { getContracts } from './contracts';
 import { ethers, Signer } from 'ethers';
 import ENVIRONMENT from '../config/environment';
 import { estimateUserOperationGas } from './bundler';
 
-export const straxAdmin = new ethers.Wallet(ENVIRONMENT.ADMIN_PRIVATE_KEY!);
+export const yeetAdmin = new ethers.Wallet(ENVIRONMENT.ADMIN_PRIVATE_KEY!);
 
 export type UserOperation = {
   sender: string;
@@ -29,8 +29,8 @@ export async function setupUserOpExecute(params: {
   callData: string;
 }): Promise<UserOperation> {
   const Account = new ethers.ContractFactory(
-    StraxAccount.abi,
-    StraxAccount.bytecode,
+    YeetAccount.abi,
+    YeetAccount.bytecode,
   );
   const callDataForEntryPoint = Account.interface.encodeFunctionData(
     'execute',
@@ -83,25 +83,25 @@ async function setupUserOp(params: {
 }
 
 async function generatePaymasterAndData(userOp: any): Promise<string> {
-  const { straxPaymaster } = await getContracts();
+  const { yeetPaymaster } = await getContracts();
   const validAfter = Math.floor(Date.now() / 1000);
   const validUntil = validAfter + 1800;
   const erc20Token = ENVIRONMENT.GAS_TOKEN_ADDRESS;
   const exchangeRate = 0; // For now it's free
 
-  const hash = await straxPaymaster.getHash(
+  const hash = await yeetPaymaster.getHash(
     Object.values(userOp),
     validUntil,
     validAfter,
     erc20Token,
     exchangeRate,
   );
-  const signature = await straxAdmin.signMessage(ethers.utils.arrayify(hash));
+  const signature = await yeetAdmin.signMessage(ethers.utils.arrayify(hash));
   const paymasterAndData = ethers.utils.defaultAbiCoder.encode(
     ['uint48', 'uint48', 'address', 'uint256'],
     [validUntil, validAfter, erc20Token, exchangeRate],
   );
   return ethers.utils.hexlify(
-    ethers.utils.concat([straxPaymaster.address, paymasterAndData, signature]),
+    ethers.utils.concat([yeetPaymaster.address, paymasterAndData, signature]),
   );
 }

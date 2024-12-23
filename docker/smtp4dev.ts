@@ -17,16 +17,16 @@ export async function smtpStart(opts?: Options) {
   const mailClientPort = opts?.mailClientPort ?? 5002;
   const mailClientPortMapping = `${mailClientPort}:80`;
   const smtpPortMapping = `${smtpPort}:25`;
-  await dockerCreateNetwork({ networkName: 'strax' });
+  await dockerCreateNetwork({ networkName: 'yeet' });
   const containerId = await dockerRun({
     image: 'rnwood/smtp4dev:v3.1',
-    containerName: 'strax-smtp',
+    containerName: 'yeet-smtp',
     dockerParams: [
       '-p',
       mailClientPortMapping,
       '-p',
       smtpPortMapping,
-      '--network=strax',
+      '--network=yeet',
     ],
   });
 
@@ -37,6 +37,6 @@ export async function smtpStart(opts?: Options) {
 }
 
 export async function smtpStop() {
-  await dockerStop({ containerId: 'strax-smtp' });
-  await dockerRm({ containerId: 'strax-smtp' });
+  await dockerStop({ containerId: 'yeet-smtp' });
+  await dockerRm({ containerId: 'yeet-smtp' });
 }

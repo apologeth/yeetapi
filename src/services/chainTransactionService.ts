@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { getContracts, provider } from '../utils/contracts';
-import StraxAccount from '../contracts/StraxAccount.json';
-import { straxAdmin, setupUserOpExecute } from '../utils/user-operation';
+import YeetAccount from '../contracts/YeetAccount.json';
+import { yeetAdmin, setupUserOpExecute } from '../utils/user-operation';
 import {
   CHAIN_TRANSACTION_ACTION_TYPE,
   CHAIN_TRANSACTION_STATUS,
@@ -20,15 +20,15 @@ export default class ChainTransactionService {
     opts: { dbTransaction: DBTransaction },
   ) {
     const signer = new ethers.Wallet(accountPrivateKey);
-    const { straxAccountFactory } = await getContracts();
+    const { yeetAccountFactory } = await getContracts();
 
-    const initCallData = straxAccountFactory.interface.encodeFunctionData(
+    const initCallData = yeetAccountFactory.interface.encodeFunctionData(
       'createAccount',
       [signer.address, '0x00'],
     );
     const factoryAddress = ethers.utils.solidityPack(
       ['address'],
-      [straxAccountFactory.address],
+      [yeetAccountFactory.address],
     );
     const initCode = ethers.utils.solidityPack(
       ['bytes', 'bytes'],
@@ -36,10 +36,10 @@ export default class ChainTransactionService {
     );
 
     const accountAbstractionAddress: string =
-      await straxAccountFactory.getAddress(signer.address, '0x00');
+      await yeetAccountFactory.getAddress(signer.address, '0x00');
     const Account = new ethers.ContractFactory(
-      StraxAccount.abi,
-      StraxAccount.bytecode,
+      YeetAccount.abi,
+      YeetAccount.bytecode,
     );
     const callData = Account.interface.encodeFunctionData('register', [
       email,
@@ -122,7 +122,7 @@ export default class ChainTransactionService {
     transactionStep: TransactionStep,
     opts: { dbTransaction: DBTransaction },
   ) {
-    const signer = straxAdmin;
+    const signer = yeetAdmin;
     let callData;
     if (transactionStep.tokenAddress !== nativeTokenAddress) {
       const token = new ethers.Contract(

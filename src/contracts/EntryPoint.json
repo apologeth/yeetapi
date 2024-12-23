@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "StraxEntryPoint",
-  "sourceName": "contracts/StraxEntryPoint.sol",
+  "contractName": "YeetEntryPoint",
+  "sourceName": "contracts/YeetEntryPoint.sol",
   "abi": [
     {
       "inputs": [

@@ -1,12 +1,12 @@
 import { Contract, ethers } from 'ethers';
 import ENVIRONMENT from '../config/environment';
 import EntryPoint from '../contracts/EntryPoint.json';
-import StraxAccountFactory from '../contracts/StraxAccountFactory.json';
-import StraxPaymaster from '../contracts/StraxPaymaster.json';
+import YeetAccountFactory from '../contracts/YeetAccountFactory.json';
+import YeetPaymaster from '../contracts/YeetPaymaster.json';
 
 let entrypoint: Contract;
-let straxAccountFactory: Contract;
-let straxPaymaster: Contract;
+let yeetAccountFactory: Contract;
+let yeetPaymaster: Contract;
 
 export const provider = new ethers.providers.JsonRpcProvider(
   ENVIRONMENT.CHAIN_RPC_URL,
@@ -17,27 +17,27 @@ export const provider = new ethers.providers.JsonRpcProvider(
 );
 
 export async function getContracts() {
-  if (!entrypoint || !straxAccountFactory || !straxPaymaster) {
+  if (!entrypoint || !yeetAccountFactory || !yeetPaymaster) {
     entrypoint = new ethers.Contract(
       ENVIRONMENT.ENTRYPOINT_ADDRESS!,
       EntryPoint.abi,
       provider,
     );
-    straxAccountFactory = new ethers.Contract(
-      ENVIRONMENT.STRAX_ACCOUNT_FACTORY_ADDRESS!,
-      StraxAccountFactory.abi,
+    yeetAccountFactory = new ethers.Contract(
+      ENVIRONMENT.YEET_ACCOUNT_FACTORY_ADDRESS!,
+      YeetAccountFactory.abi,
       provider,
     );
-    straxPaymaster = new ethers.Contract(
-      ENVIRONMENT.STRAX_PAYMASTER_ADDRESS!,
-      StraxPaymaster.abi,
+    yeetPaymaster = new ethers.Contract(
+      ENVIRONMENT.YEET_PAYMASTER_ADDRESS!,
+      YeetPaymaster.abi,
       provider,
     );
   }
 
   return {
     entrypoint,
-    straxAccountFactory,
-    straxPaymaster,
+    yeetAccountFactory,
+    yeetPaymaster,
   };
 }
