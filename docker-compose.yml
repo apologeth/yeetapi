@@ -65,7 +65,7 @@ services:
       - web-root:/var/www/html
     depends_on:
       - webserver
-    command: certonly --webroot --webroot-path=/var/www/html --email soultanmuh@gmail.com --agree-tos --no-eff-email --force-renewal -d yeetapi.blockchainworks.id
+    command: certonly --webroot --webroot-path=/var/www/html --email yeetpay.id@gmail.com --agree-tos --no-eff-email --force-renewal -d api.yeetpay.id
 
 volumes:
   db-data:
