@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "YeetAccountFactory",
-  "sourceName": "contracts/YeetAccountFactory.sol",
+  "contractName": "DrvAccountFactory",
+  "sourceName": "contracts/DrvAccountFactory.sol",
   "abi": [
     {
       "inputs": [

@@ -1,4 +1,4 @@
-import YeetAccount from '../contracts/YeetAccount.json';
+import DrvAccount from '../contracts/DrvAccount.json';
 import { getContracts } from './contracts';
 import { ethers, Signer } from 'ethers';
 import ENVIRONMENT from '../config/environment';
@@ -29,8 +29,8 @@ export async function setupUserOpExecute(params: {
   callData: string;
 }): Promise<UserOperation> {
   const Account = new ethers.ContractFactory(
-    YeetAccount.abi,
-    YeetAccount.bytecode,
+    DrvAccount.abi,
+    DrvAccount.bytecode,
   );
   const callDataForEntryPoint = Account.interface.encodeFunctionData(
     'execute',
@@ -83,13 +83,13 @@ async function setupUserOp(params: {
 }
 
 async function generatePaymasterAndData(userOp: any): Promise<string> {
-  const { yeetPaymaster } = await getContracts();
+  const { drvPaymaster } = await getContracts();
   const validAfter = Math.floor(Date.now() / 1000);
   const validUntil = validAfter + 1800;
   const erc20Token = ENVIRONMENT.GAS_TOKEN_ADDRESS;
   const exchangeRate = 0; // For now it's free
 
-  const hash = await yeetPaymaster.getHash(
+  const hash = await drvPaymaster.getHash(
     Object.values(userOp),
     validUntil,
     validAfter,
@@ -102,6 +102,6 @@ async function generatePaymasterAndData(userOp: any): Promise<string> {
     [validUntil, validAfter, erc20Token, exchangeRate],
   );
   return ethers.utils.hexlify(
-    ethers.utils.concat([yeetPaymaster.address, paymasterAndData, signature]),
+    ethers.utils.concat([drvPaymaster.address, paymasterAndData, signature]),
   );
 }

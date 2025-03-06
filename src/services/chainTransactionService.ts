@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { getContracts, provider } from '../utils/contracts';
-import YeetAccount from '../contracts/YeetAccount.json';
+import DrvAccount from '../contracts/DrvAccount.json';
 import { yeetAdmin, setupUserOpExecute } from '../utils/user-operation';
 import {
   CHAIN_TRANSACTION_ACTION_TYPE,
@@ -20,15 +20,15 @@ export default class ChainTransactionService {
     opts: { dbTransaction: DBTransaction },
   ) {
     const signer = new ethers.Wallet(accountPrivateKey);
-    const { yeetAccountFactory } = await getContracts();
+    const { drvAccountFactory } = await getContracts();
 
-    const initCallData = yeetAccountFactory.interface.encodeFunctionData(
+    const initCallData = drvAccountFactory.interface.encodeFunctionData(
       'createAccount',
       [signer.address, '0x00'],
     );
     const factoryAddress = ethers.utils.solidityPack(
       ['address'],
-      [yeetAccountFactory.address],
+      [drvAccountFactory.address],
     );
     const initCode = ethers.utils.solidityPack(
       ['bytes', 'bytes'],
@@ -36,10 +36,10 @@ export default class ChainTransactionService {
     );
 
     const accountAbstractionAddress: string =
-      await yeetAccountFactory.getAddress(signer.address, '0x00');
+      await drvAccountFactory.getAddress(signer.address, '0x00');
     const Account = new ethers.ContractFactory(
-      YeetAccount.abi,
-      YeetAccount.bytecode,
+      DrvAccount.abi,
+      DrvAccount.bytecode,
     );
     const callData = Account.interface.encodeFunctionData('register', [
       email,

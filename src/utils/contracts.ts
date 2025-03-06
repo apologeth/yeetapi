@@ -1,12 +1,12 @@
 import { Contract, ethers } from 'ethers';
 import ENVIRONMENT from '../config/environment';
 import EntryPoint from '../contracts/EntryPoint.json';
-import YeetAccountFactory from '../contracts/YeetAccountFactory.json';
-import YeetPaymaster from '../contracts/YeetPaymaster.json';
+import DrvAccountFactory from '../contracts/DrvAccountFactory.json';
+import DrvPaymaster from '../contracts/DrvPaymaster.json';
 
 let entrypoint: Contract;
-let yeetAccountFactory: Contract;
-let yeetPaymaster: Contract;
+let drvAccountFactory: Contract;
+let drvPaymaster: Contract;
 
 export const provider = new ethers.providers.JsonRpcProvider(
   ENVIRONMENT.CHAIN_RPC_URL,
@@ -17,27 +17,27 @@ export const provider = new ethers.providers.JsonRpcProvider(
 );
 
 export async function getContracts() {
-  if (!entrypoint || !yeetAccountFactory || !yeetPaymaster) {
+  if (!entrypoint || !drvAccountFactory || !drvPaymaster) {
     entrypoint = new ethers.Contract(
       ENVIRONMENT.ENTRYPOINT_ADDRESS!,
       EntryPoint.abi,
       provider,
     );
-    yeetAccountFactory = new ethers.Contract(
+    drvAccountFactory = new ethers.Contract(
       ENVIRONMENT.YEET_ACCOUNT_FACTORY_ADDRESS!,
-      YeetAccountFactory.abi,
+      DrvAccountFactory.abi,
       provider,
     );
-    yeetPaymaster = new ethers.Contract(
+    drvPaymaster = new ethers.Contract(
       ENVIRONMENT.YEET_PAYMASTER_ADDRESS!,
-      YeetPaymaster.abi,
+      DrvPaymaster.abi,
       provider,
     );
   }
 
   return {
     entrypoint,
-    yeetAccountFactory,
-    yeetPaymaster,
+    drvAccountFactory,
+    drvPaymaster,
   };
 }

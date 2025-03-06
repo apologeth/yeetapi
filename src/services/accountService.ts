@@ -39,8 +39,8 @@ export default class AccountService {
     opts: { dbTransaction: DBTransaction };
   }) {
     const { email, password, fiatWalletId, opts } = params;
-    const { yeetAccountFactory } = await getContracts();
-    const registeredEmail = await yeetAccountFactory.accountOfEmail(email);
+    const { drvAccountFactory } = await getContracts();
+    const registeredEmail = await drvAccountFactory.accountOfEmail(email);
     mustBeTrue(
       new ConflictError(`email: ${email} is already registered`),
       registeredEmail === zeroAddress,
@@ -225,14 +225,14 @@ export default class AccountService {
     const account = await Account.findByPk(accountId);
     return account
       ? {
-          id: account.id,
-          email: account.email,
-          address: account.address,
-          accountAbstractionAddress: account.accountAbstractionAddress,
-          status: account.status,
-          createdAt: account.createdAt,
-          updatedAt: account.updatedAt,
-        }
+        id: account.id,
+        email: account.email,
+        address: account.address,
+        accountAbstractionAddress: account.accountAbstractionAddress,
+        status: account.status,
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt,
+      }
       : {};
   }
 
